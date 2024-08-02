@@ -1,5 +1,6 @@
 const constant = {
-    dbName: 'youtubePracticeDb'
+    dbName: 'youtubePracticeDb',
+    dataLimit: '20kb'
 }
 
 export default constant;
