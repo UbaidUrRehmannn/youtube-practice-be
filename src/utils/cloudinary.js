@@ -25,7 +25,7 @@ import fs from 'fs';
             return response;
         } catch (error) {
             console.log(error);
-            // remove temprory saved local file as uploaded operation is filed
+            // remove temprory saved local file as uploaded operation got failed
             fs.unlinkSync(localFilePath);
             return null;
         }
