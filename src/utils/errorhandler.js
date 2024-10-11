@@ -1,6 +1,6 @@
 import constant from '../constant.js';
 
-// Define a custom error class that extends the built-in Error class oj Node.js
+// Define a custom error class that extends the built-in Error class of Node.js
 class ApiError extends Error {
     // The constructor method is called when a new instance of ApiError is created
     constructor(

@@ -3,7 +3,8 @@ import express from 'express';
 import constant from './constant.js';
 import cookieParser from 'cookie-parser';
 import userRouter from './routes/user.routes.js';
-
+import { errorHandler } from './middleware/errorHandler.middleware.js'
+import { verifyJwt } from './middleware/auth.middleware.js';
 const app = express();
 
 app.use(
@@ -20,8 +21,10 @@ app.use(express.urlencoded({
 }));
 app.use(express.static('public'));
 app.use(cookieParser());
+app.use(verifyJwt);
 
 //routes declaration
-app.use('/api/v1/users', userRouter);
+app.use('/api/v1/user', userRouter);
 
+app.use(errorHandler); 
 export default app;

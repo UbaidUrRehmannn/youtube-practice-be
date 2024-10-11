@@ -80,11 +80,11 @@ const uploadImage = async (localFilePath) => {
             resource_type: 'auto',
         });
         // File has been uploaded successfully
-        console.log('File: ', response);
-        console.log('File is successfully uploaded on cloudinary server: ', response.url);
+        // console.log('File: ', response);
+        // console.log('File is successfully uploaded on cloudinary server: ', response.url);
         return response;
     } catch (error) {
-        console.log(error);
+        // console.log(error);
         // remove temprory saved local file as uploaded operation got failed
         fs.unlinkSync(localFilePath);
         return null;
