@@ -144,20 +144,22 @@ const logout = asyncHandler ( async(req, res) => {
         { $set: { refreshToken: '' }},
         { new: true},
     )
-    const accessTokenCookieOption = {
+
+    const cookieOptions = {
         httpOnly: true,
-        maxAge: getMsFromEnv(process.env.ACCESS_TOKEN_EXPIRY),
         secure: true,
-    }
-    const refreshTokenCookieOption = {
-        httpOnly: true,
-        maxAge: getMsFromEnv(process.env.REFRESH_TOKEN_EXPIRY),
-        secure: true,
-    }
+        maxAge: 0
+    };
     
-    return res.status(200).clearCookie('accessToken', accessTokenCookieOption).clearCookie('refreshToken', refreshTokenCookieOption).json(
+    return res.status(200).clearCookie('accessToken', cookieOptions).clearCookie('refreshToken', cookieOptions).json(
         new ApiResponse(200, {}, "User logout successfully")
     )
 })
 
-export { registerUser, loginUser, logout };
+const renewRefreshToken = asyncHandler( async (req, res) => {
+    return res.status(200).json(
+        new ApiResponse(200, {}, 'token renewed successfully')
+    )
+})
+
+export { registerUser, loginUser, logout, renewRefreshToken };
