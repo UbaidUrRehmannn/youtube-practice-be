@@ -12,6 +12,8 @@ const getMsFromEnv = (timeStr) => {
     return hours * 60 * 60 * 1000; // 1 hour = 60 minutes * 60 seconds * 1000 ms
 }
 
+const isProduction = process.env.ENVIRONMENT === 'PROD';
+
 const registerUser = asyncHandler(async (req, res, next) => {
     // console.log("req.body: ", req.body);
     // console.log("req.files: ", req.files);
@@ -120,15 +122,21 @@ const loginUser = asyncHandler(async (req, res) => {
         throw new ApiError(401, 'Invalid password');
     }
     const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id);
-
+    /** 
+     *! use withCredentials: true in case of axios 
+     *! use credentials: 'include' in case of fetch 
+     *! to allow backend to set cookies in frontend
+    */ 
     res.cookie('accessToken', accessToken, {
         httpOnly: true,
+        sameSite: 'none',
         maxAge: getMsFromEnv(process.env.ACCESS_TOKEN_EXPIRY),
         secure: true,
     });
     
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
+        sameSite: 'none',
         maxAge: getMsFromEnv(process.env.REFRESH_TOKEN_EXPIRY),
         secure: true,
     });
@@ -156,10 +164,14 @@ const logout = asyncHandler ( async(req, res) => {
     )
 })
 
-const renewRefreshToken = asyncHandler( async (req, res) => {
+const renewToken = asyncHandler( async (req, res) => {
+    const refreshToken =  req.cookies.refreshToken || req.body.refreshToken;
+    if (!refreshToken) {
+        throw new ApiError(401, "Unauthorized request: No token provided");
+    }
     return res.status(200).json(
         new ApiResponse(200, {}, 'token renewed successfully')
     )
 })
 
-export { registerUser, loginUser, logout, renewRefreshToken };
+export { registerUser, loginUser, logout, renewToken };
