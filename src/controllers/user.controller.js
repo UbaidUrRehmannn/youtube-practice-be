@@ -1,9 +1,10 @@
 import bcrypt from 'bcrypt';
 import { User } from '../models/user.model.js';
+import jwt from 'jsonwebtoken';
 import ApiError from '../utils/errorhandler.js';
 import asyncHandler from '../utils/asynchandler.js';
-import ApiResponse from '../utils/responsehandler.js';
 import { uploadImage } from '../utils/cloudinary.js';
+import ApiResponse from '../utils/responsehandler.js';
 import { generateAccessAndRefreshToken } from '../utils/common.js';
 import { isValidEmail, isEmpty } from '../utils/validationUtils.js';
 
@@ -165,13 +166,49 @@ const logout = asyncHandler ( async(req, res) => {
 })
 
 const renewToken = asyncHandler( async (req, res) => {
-    const refreshToken =  req.cookies.refreshToken || req.body.refreshToken;
-    if (!refreshToken) {
+    const userRefreshToken =  req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!userRefreshToken) {
         throw new ApiError(401, "Unauthorized request: No token provided");
     }
-    return res.status(200).json(
-        new ApiResponse(200, {}, 'token renewed successfully')
-    )
+    try {
+        const decodedToken = jwt.verify(userRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+        const user = await User.findById(decodedToken._id)
+        if (!user) {
+            throw new ApiError(401, 'Unauthorized request: Invalid token');
+        }
+    
+        if (userRefreshToken !== user.refreshToken) {
+            throw new ApiError(401, 'Unauthorized request: Refresh token is expired or used');
+        }
+    
+        const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id);
+    
+        /** 
+         *! use withCredentials: true in case of axios 
+         *! use credentials: 'include' in case of fetch 
+         *! to allow backend to set cookies in frontend
+        */ 
+         res.cookie('accessToken', accessToken, {
+            httpOnly: true,
+            sameSite: 'none',
+            maxAge: getMsFromEnv(process.env.ACCESS_TOKEN_EXPIRY),
+            secure: true,
+        });
+        
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            sameSite: 'none',
+            maxAge: getMsFromEnv(process.env.REFRESH_TOKEN_EXPIRY),
+            secure: true,
+        });
+        const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+        return res.status(200).json(
+            new ApiResponse(200, {userData: loggedInUser, accessToken, refreshToken}, 'Tokens updated successfully')
+        )
+    } catch (error) {
+        throw new ApiError(401, error?.message || "Unauthorized request: invalid Token");
+    }
 })
 
 export { registerUser, loginUser, logout, renewToken };

@@ -9,7 +9,7 @@ export const verifyJwt = asyncHandler(async (req, res, next) => {
     if (constant.publicRouts.some(route => req.path.includes(route))) {
         return next();
     }
-    const token = req.cookies?.accessToken || req.header('Authorization')?.replace('Bearer ', '');
+    const token =  req.cookies?.accessToken || req.header('Authorization')?.replace('Bearer ', '');
     if (!token) {
         throw new ApiError(401, 'Unauthorized request: No token provided');
     }
