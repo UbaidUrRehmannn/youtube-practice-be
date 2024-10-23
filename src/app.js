@@ -35,11 +35,14 @@ app.use(verifyJwt);
 //routes declaration
 app.use('/api/v1/user', userRouter);
 
-app.get('/health-check', async (req, res) => {
+//! @desc use to check if BE is running or not
+//! @route GET /api/v1/health-check
+//! @access Public
+app.get('/api/v1/health-check', async (req, res) => {
     res.status(200).json({
         data: null,
         status: 200,
-        message: "Backend and DB working properly"
+        message: "Backend is running"
     });
 });
 

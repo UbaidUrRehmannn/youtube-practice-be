@@ -92,4 +92,27 @@ const uploadImage = async (localFilePath) => {
     }
 };
 
-export { uploadImage };
+// Function to delete image from Cloudinary
+const deleteImage = async (imageUrl) => {
+    try {
+        if (!imageUrl || imageUrl === '') return null;
+        // Extract public ID from Cloudinary URL
+        const publicId = extractPublicId(imageUrl);
+        console.log("🚀 ~ deleteImage ~ publicId:", publicId)
+        // Delete image from Cloudinary
+        await cloudinary.uploader.destroy(publicId);
+        return true;
+    } catch (error) {
+        console.error('Error deleting image from Cloudinary:', error);
+        return null;
+    }
+};
+
+// Helper function to extract public ID from Cloudinary URL
+const extractPublicId = (url) => {
+    const parts = url.split('/');
+    const publicIdWithExtension = parts[parts.length - 1];
+    return publicIdWithExtension.split('.')[0]; // Extract public ID without file extension
+};
+
+export { uploadImage, deleteImage };

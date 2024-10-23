@@ -2,7 +2,6 @@ import { User } from "../models/user.model.js";
 import ApiError from "./errorhandler.js";
 
 export const generateAccessAndRefreshToken = async (userId) => {
-    console.log("🚀 ~ generateAccessAndRefreshToken ~ userId:", userId)
     try {
         const user = await User.findById(userId);
         const accessToken = await user.generateAccessToken();
