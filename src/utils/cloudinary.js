@@ -98,7 +98,6 @@ const deleteImage = async (imageUrl) => {
         if (!imageUrl || imageUrl === '') return null;
         // Extract public ID from Cloudinary URL
         const publicId = extractPublicId(imageUrl);
-        console.log("🚀 ~ deleteImage ~ publicId:", publicId)
         // Delete image from Cloudinary
         await cloudinary.uploader.destroy(publicId);
         return true;
@@ -115,4 +114,10 @@ const extractPublicId = (url) => {
     return publicIdWithExtension.split('.')[0]; // Extract public ID without file extension
 };
 
-export { uploadImage, deleteImage };
+const removeLocalFile = (localFilePath) => {
+    if (localFilePath && fs.existsSync(localFilePath)) {
+        fs.unlinkSync(localFilePath);
+    }
+}
+
+export { uploadImage, deleteImage, removeLocalFile };

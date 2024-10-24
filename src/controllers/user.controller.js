@@ -3,10 +3,11 @@ import { User } from '../models/user.model.js';
 import jwt from 'jsonwebtoken';
 import ApiError from '../utils/errorhandler.js';
 import asyncHandler from '../utils/asynchandler.js';
-import { uploadImage, deleteImage } from '../utils/cloudinary.js';
+import { uploadImage, deleteImage, removeLocalFile } from '../utils/cloudinary.js';
 import ApiResponse from '../utils/responsehandler.js';
 import { generateAccessAndRefreshToken } from '../utils/common.js';
 import { isValidEmail, isEmpty } from '../utils/validationUtils.js';
+import constant from '../constant.js';
 
 const getMsFromEnv = (timeStr) => {
     const hours = parseInt(timeStr);
@@ -51,15 +52,41 @@ const registerUser = asyncHandler(async (req, res, next) => {
     });
 
     if (existingUser) {
-        const errorMessage = existingUser.userName === userName ? `User with username "${userName}" already exists` : `User with email "${email}" already exists`;
+        console.log(userName)
+        console.log(email)
+        console.log(existingUser)
+        let errorMessage = '';
+        // Check for which field already exists
+        if (existingUser.userName === userName.toLowerCase() && existingUser.email === email.toLowerCase()) {
+            errorMessage = `Both username "${userName.toLowerCase()}" and email "${email.toLowerCase()}" are already in use.`;
+        } else if (existingUser.userName === userName.toLowerCase()) {
+            errorMessage = `User with username "${userName.toLowerCase()}" already exists.`;
+        } else if (existingUser.email === email.toLowerCase()) {
+            errorMessage = `User with email "${email.toLowerCase()}" already exists.`;
+        }
+    
+        // Log the error message and throw an ApiError
+        console.log("🚀 ~ registerUser ~ errorMessage:", errorMessage);
         throw new ApiError(409, errorMessage);
         // const errorMessage = existingUser.userName === userName ? `User with username userName}" already exists` : `User with email "${email}" already exists`;
         // return res.status(409).json(new ApiError(409, errorMessage));
     }
-
+    
     const avatarLocalPath = req.files?.avatar?.[0]?.path;
     if (!avatarLocalPath) {
         throw new ApiError(400, 'Avatar is required');
+    }
+    
+    // Validate avatar mime type
+    const avatarFileMimeType = req.files?.avatar?.[0]?.mimetype;
+    if (!avatarFileMimeType.startsWith(constant.mimeType.image)) {
+        throw new ApiError(400, "Only image files are allowed for avatar");
+    }
+    
+    // Validate avatar size
+    const avatarFileSizeInMB = req.files?.avatar?.[0]?.size / (1024 * 1024);
+    if (avatarFileSizeInMB > constant.avatarImageSize) {
+        throw new ApiError(400, `Avatar image size should be less than ${constant.avatarImageSize} MB`);
     }
     
     // Upload the avatar image
@@ -73,6 +100,19 @@ const registerUser = asyncHandler(async (req, res, next) => {
     let coverImage = '';
     
     if (coverImageLocalPath) {
+        // Validate cover image mime type
+        const coverImageFileMimeType = req.files?.coverImage?.[0]?.mimetype;
+        if (!coverImageFileMimeType.startsWith(constant.mimeType.image)) {
+            throw new ApiError(400, "Only image files are allowed for cover");
+        }
+    
+        // Validate cover image size
+        const coverImageFileSizeInMB = req.files?.coverImage?.[0]?.size / (1024 * 1024);
+        if (coverImageFileSizeInMB > constant.coverImageSize) {
+            throw new ApiError(400, `Cover image size should be less than ${constant.coverImageSize} MB`);
+        }
+    
+        // Upload the cover image
         coverImage = await uploadImage(coverImageLocalPath);
         if (!coverImage) {
             throw new ApiError(400, 'Cover image upload failed');
@@ -241,7 +281,7 @@ const updatePassword = asyncHandler( async(req, res) => {
     }
 
     if (password === newPassword) {
-        throw new ApiError(400, 'Old password and new password are same');
+        throw new ApiError(400, 'new password should be different from current password');
     }
     const user = await User.findById(req.user._id);
 
@@ -275,8 +315,10 @@ const currentUser = asyncHandler( async(req, res) => {
 //! @access Private
 const updateUser = asyncHandler( async(req, res) => {
     const {email, fullName} = req.body;
-    const user = await User.findById(req.user._id)
-    if ((fullName && user.fullName === fullName) && (email && user.email === email)) {
+
+    const user = await User.findById(req.user._id).select('-password -refreshToken')
+    
+    if ((fullName && user.fullName === fullName) && (email && user.email === email.toLowerCase())) {
         throw new ApiError(400, "Please updat atleast one field");
     }
     if (email && user.email !== email) {
@@ -297,22 +339,35 @@ const updateUser = asyncHandler( async(req, res) => {
 //! @access Private
 const updateUserAvatar = asyncHandler( async(req, res) => {
     try {
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user._id).select('-password -refreshToken');
 
         const localFilePath = req.file?.path;
         if (!localFilePath) {
             throw new ApiError(400, "Avatar is required");
         }
-        
+
+        const fileMimeType = req.file?.mimetype;
+        if (!fileMimeType.startsWith(constant.mimeType.image)) {
+            removeLocalFile(localFilePath);
+            throw new ApiError(400, "Only image files are allowed for avatar");
+        }
+
+        const fileSizeInMB = req.file?.size / (1024 * 1024);
+        if (fileSizeInMB > constant.avatarImageSize) {
+            removeLocalFile(localFilePath);
+            throw new ApiError(400, `Image size should be less than ${constant.avatarImageSize} MB`);
+        }
+
         const uploadedImage = await uploadImage(localFilePath);
         if (!uploadedImage?.url) {
+            removeLocalFile(localFilePath);
             throw new ApiError(500, "Error while uploading Avatar");
         }
         if (user.coverImage) {
             await deleteImage(user.avatar)
         }
         user.avatar = uploadedImage.url || '';
-        user.save({ validateBeforeSave: false});
+        await user.save({ validateBeforeSave: false});
         return res.status(200).json(
             new ApiResponse(200, {userData: user}, 'User Avatar updated successfully')
         )
@@ -326,32 +381,46 @@ const updateUserAvatar = asyncHandler( async(req, res) => {
 //! @access Private
 const updateUserCoverImage = asyncHandler (async (req, res) => {
     try {
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user._id).select('-password -refreshToken');
 
         const localFilePath = req.file?.path;
         if (!localFilePath) {
             throw new ApiError(400, "Cover image is required");
         }
+
+        const fileMimeType = req.file?.mimetype;
+        if (!fileMimeType.startsWith(constant.mimeType.image)) {
+            removeLocalFile(localFilePath);
+            throw new ApiError(400, "Only image files are allowed for cover");
+        }
+
+        const fileSizeInMB = req.file?.size / (1024 * 1024);
+        if (fileSizeInMB > constant.coverImageSize) {
+            removeLocalFile(localFilePath);
+            throw new ApiError(400, `Image size should be less than ${constant.coverImageSize} MB`);
+        }
         
         const uploadedImage = await uploadImage(localFilePath);
         if (!uploadedImage?.url) {
+            removeLocalFile(localFilePath);
             throw new ApiError(500, "Error while uploading cover image");
         }
         if (user.coverImage) {
             await deleteImage(user.coverImage)
         }
         user.coverImage = uploadedImage.url || '';
-        user.save({ validateBeforeSave: false});
+        await user.save({ validateBeforeSave: false});
         return res.status(200).json(
             new ApiResponse(200, {userData: user}, 'User cover image updated successfully')
         )
     } catch (error) {
+        console.log("🚀 ~ updateUserCoverImage ~ error:", error)
         throw new ApiError(500, error?.message || "error while uploading cover image");
     }
 })
 
 //! @desc delete current user
-//! @route POST /api/v1/users/deleteUser
+//! @route GET /api/v1/users/deleteUser
 //! @access Private
 const deleteUser = asyncHandler (async (req, res) => {
     const user = await User.findById(req.user._id);

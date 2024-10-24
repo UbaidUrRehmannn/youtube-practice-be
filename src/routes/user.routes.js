@@ -26,8 +26,9 @@ router.route('/logout').get(logout);
 router.route('/refreshToken').post(renewToken);
 router.route('/updatePassword').post(updatePassword);
 router.route('/getUser').get(currentUser);
-router.route('/refreshToken').post(updateUser);
+router.route('/updateUser').post(updateUser);
 router.route('/updateAvatar').post(upload.single('avatar'), updateUserAvatar);
 router.route('/updateCover').post(upload.single('coverImage'), updateUserCoverImage);
+router.route('/deleteUser').get(deleteUser);
 
 export default router;
