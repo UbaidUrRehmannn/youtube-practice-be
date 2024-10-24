@@ -1,5 +1,10 @@
 import { Schema, modal } from 'mongoose';
 import mongooseAggregatePaginate from 'mongoose-aggregate-paginate-v2';
+
+/* 
+* follow the link to see detail desciption about this document
+* https://app.eraser.io/workspace/vUC34CQ5WEcvsfc7ew9u?origin=share
+*/
 const subscriptionSchema = new Schema(
     {
         subscriber: {
