@@ -8,12 +8,12 @@ import ApiResponse from '../utils/responsehandler.js';
 import { generateAccessAndRefreshToken } from '../utils/common.js';
 import { isValidEmail, isEmpty } from '../utils/validationUtils.js';
 import constant from '../constant.js';
+import mongoose from 'mongoose';
 
 const getMsFromEnv = (timeStr) => {
     const hours = parseInt(timeStr);
     return hours * 60 * 60 * 1000; // 1 hour = 60 minutes * 60 seconds * 1000 ms
 }
-
 const isProduction = process.env.ENVIRONMENT === 'PROD';
 
 //! @desc Register a new user
@@ -169,7 +169,7 @@ const loginUser = asyncHandler(async (req, res) => {
     // const isMatch = await bcrypt.compare(password, user.password);
     const isMatch = await user.isPasswordCorrect(password);
     if (!isMatch) {
-        throw new ApiError(401, 'Invalid password');
+        throw new ApiError(401, 'Invalid credentials');
     }
     const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id);
     /** 
@@ -201,20 +201,28 @@ const loginUser = asyncHandler(async (req, res) => {
 //! @route GET /api/v1/users/logout
 //! @access Private
 const logout = asyncHandler ( async(req, res) => {
-    await User.findByIdAndUpdate(req.user._id, 
-        { $set: { refreshToken: '' }},
-        { new: true},
-    )
-
-    const cookieOptions = {
-        httpOnly: true,
-        secure: true,
-        maxAge: 0
-    };
+    try {
+        const user = await User.findByIdAndUpdate(req.user._id, 
+            { $set: { refreshToken: '' }},
+            { new: true},
+        )
     
-    return res.status(200).clearCookie('accessToken', cookieOptions).clearCookie('refreshToken', cookieOptions).json(
-        new ApiResponse(200, {}, "User logout successfully")
-    )
+        if (!user) {
+            throw new ApiError(404, "User not found");
+        }
+    
+        const cookieOptions = {
+            httpOnly: true,
+            secure: true,
+            maxAge: 0
+        };
+        
+        return res.status(200).clearCookie('accessToken', cookieOptions).clearCookie('refreshToken', cookieOptions).json(
+            new ApiResponse(200, {}, "User logout successfully")
+        )
+    } catch (error) {
+        throw new ApiError(401, error?.message || "Unauthorized request: invalid Token");
+    }
 })
 
 //! @desc give user updated access and refresh token
@@ -306,8 +314,15 @@ const updatePassword = asyncHandler( async(req, res) => {
 const currentUser = asyncHandler( async(req, res) => {
     const userData = await User.findById(req.user._id).select('-password -refreshToken');
     return res.status(200).json(
-        new ApiResponse(200, {userData}, 'User received successfully')
+        new ApiResponse(200, {userData}, 'User data received successfully')
     )
+})
+
+//! @desc allow user to reset password
+//! @route GET /api/v1/users/forgotPassword
+//! @access Public
+const forgotPassword = asyncHandler( async(req, res) => {
+   
 })
 
 //! @desc update user data
@@ -440,4 +455,144 @@ const deleteUser = asyncHandler (async (req, res) => {
     )
 })
 
-export { registerUser, loginUser, logout, renewToken, updatePassword, currentUser, updateUser, updateUserAvatar, updateUserCoverImage, deleteUser };
+//! @desc get user/channel profile data
+//! @route GET /api/v1/users/channel/{username}
+//! @access Private
+const getUserChannelProfile = asyncHandler (async (req, res) => {
+    const {username} = req.params;
+
+    if(!username?.trim()) {
+        throw new ApiError(401, "Username is required");
+    }
+
+    const channel = await User.aggregate([
+        {
+            $match: {
+                userName: username.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                from: 'subscription',
+                localField: '_id',
+                foreignField: 'channel',
+                as: 'subscribers'
+            }
+        },
+        {
+            $lookup: {
+                from: 'subscription',
+                localField: '_id',
+                foreignField: 'subscriber',
+                as: 'subscribedTo'
+            }
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                channelsCount: {
+                    $size: "$subscribedTo"
+                },
+                isSubscribed: {
+                    // we can use this shorthand property of condition in mongodb
+                    // $cond: [{$in: [req.user?._id, "$subscribers.subscriber"]}, true, false]
+                    $cond: {
+                        //in can see in array and in object as well
+                        // if: {
+                        //     $in: [
+                        //         req.user?._id,
+                        //         { $map: { input: "$subscribers", as: "s", in: "$$s.subscriber" } },
+                        //     ],
+                        // },
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                fullName: 1,
+                userName: 1,
+                subscribersCount: 1,
+                channelsCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                createdAt: 1,
+                email: 1
+            }
+        }
+    ])
+    console.log("🚀 ~ getUserChannelProfile ~ channel:", channel);
+
+    if (!channel?.length) {
+        throw new ApiError(404, "Channel does not exists");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, channel[0], "User channel fetched successfully")
+    )
+})
+
+//! @desc get user watch history
+//! @route GET /api/v1/users/watchHistory
+//! @access Private
+const getUserWatchHistory = asyncHandler (async (req, res) => {
+    /*
+        this will return us string and mongoose will automatically add ObjectId("{here comes that string}") this when we use find, findById
+        req.user._id
+        match in aggrigate will not automatically add ObjectId and parentheses we have to manually add that to match document with ID.
+    */
+   const user = await User.aggregate([
+    {
+        $match: {
+            _id: new mongoose.Types.ObjectId(req.user._id)
+        }
+    },
+    {
+        $lookup: {
+            from: 'video',
+            localField: 'watchHistory',
+            foreignField: '_id',
+            as: 'watchHistory',
+            pipeline: [
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "owner",
+                        foreignField: "_id",
+                        as: "publishedBy",
+                        pipeline: [
+                            {
+                                $project: {
+                                    fullName: 1,
+                                    userName: 1,
+                                    avatar: 1,
+
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    $addFields: {
+                        publishedBy: {
+                              $arrayElemAt: ["$publishedBy", 0]
+                        }
+                      } 
+                }
+            ]
+        }
+    }
+   ])
+
+   return res.status(200).json(
+    new ApiResponse(200, user[0]?.watchHistory, "Watch History fetched successfully") 
+   )
+})
+
+export { registerUser, loginUser, logout, renewToken, updatePassword, currentUser, updateUser, updateUserAvatar, updateUserCoverImage, deleteUser, getUserChannelProfile, getUserWatchHistory };

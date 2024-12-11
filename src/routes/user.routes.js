@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { upload } from '../middleware/multer.middleware.js';
-import { loginUser, logout, registerUser, renewToken, updatePassword, currentUser, updateUser, updateUserAvatar, updateUserCoverImage, deleteUser } from '../controllers/user.controller.js';
+import { loginUser, logout, registerUser, renewToken, updatePassword, currentUser, updateUser, updateUserAvatar, updateUserCoverImage, deleteUser, getUserChannelProfile, getUserWatchHistory } from '../controllers/user.controller.js';
 
 const router = Router();
 
@@ -26,9 +26,11 @@ router.route('/logout').get(logout);
 router.route('/refreshToken').post(renewToken);
 router.route('/updatePassword').post(updatePassword);
 router.route('/getUser').get(currentUser);
-router.route('/updateUser').post(updateUser);
-router.route('/updateAvatar').post(upload.single('avatar'), updateUserAvatar);
-router.route('/updateCover').post(upload.single('coverImage'), updateUserCoverImage);
-router.route('/deleteUser').get(deleteUser);
+router.route('/updateUser').patch(updateUser);
+router.route('/updateAvatar').patch(upload.single('avatar'), updateUserAvatar);
+router.route('/updateCover').patch(upload.single('coverImage'), updateUserCoverImage);
+router.route('/deleteUser').delete(deleteUser);
+router.route('/channel/:username').get(getUserChannelProfile);
+router.route('/watchHistory').get(getUserWatchHistory);
 
 export default router;
