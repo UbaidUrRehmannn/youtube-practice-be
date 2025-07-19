@@ -1,12 +1,13 @@
 // import mongoose from 'mongoose';
 // import express from 'express';
-import connectDB from './db/db.js';
 import dotenv from 'dotenv';
+dotenv.config();
+import connectDB from './db/db.js';
 import app from './app.js';
 
-dotenv.config({
-    path: './env',
-});
+// dotenv.config({
+//     path: './env',
+// });
 
 const port = process.env.PORT || 8000;
 
