@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express from 'express';
-import constant from './constant.js';
+import constant, { envVariables } from './constant.js';
 import cookieParser from 'cookie-parser';
 import userRouter from './routes/user.routes.js';
 import { errorHandler } from './middleware/errorHandler.middleware.js';
@@ -13,11 +13,13 @@ const app = express();
 
 // Cloudinary Config
 cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: envVariables.cloudinaryCloudName,
+    api_key: envVariables.cloudinaryApiKey,
+    api_secret: envVariables.cloudinaryApiSecret,
 });
-
+console.log("envVariables.cloudinaryCloudName: ", envVariables.cloudinaryCloudName);
+console.log("envVariables.cloudinaryApiKey: ", envVariables.cloudinaryApiKey);
+console.log("envVariables.cloudinaryApiSecret: ", envVariables.cloudinaryApiSecret);
 /** 
  *! We can use origin: * if frontend doesn't have these below two options  
  *! use withCredentials: true in case of axios 
@@ -27,7 +29,7 @@ cloudinary.config({
  */ 
 app.use(
     cors({
-        origin: process.env.FRONTEND_URL,
+        origin: envVariables.frontendUrl,
         // origin: '*',
         credentials: true,
     }),

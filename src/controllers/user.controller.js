@@ -7,14 +7,14 @@ import { uploadImage, deleteImage, removeLocalFile } from '../utils/cloudinary.j
 import ApiResponse from '../utils/responsehandler.js';
 import { generateAccessAndRefreshToken } from '../utils/common.js';
 import { isValidEmail, isEmpty } from '../utils/validationUtils.js';
-import constant from '../constant.js';
+import constant, { envVariables } from '../constant.js';
 import mongoose from 'mongoose';
 
 const getMsFromEnv = (timeStr) => {
     const hours = parseInt(timeStr);
     return hours * 60 * 60 * 1000; // 1 hour = 60 minutes * 60 seconds * 1000 ms
 }
-const isProduction = process.env.ENVIRONMENT === 'PROD';
+const isProduction = envVariables.environment === 'PROD';
 
 //! @desc Register a new user
 //! @route POST /api/v1/users/register
@@ -180,14 +180,14 @@ const loginUser = asyncHandler(async (req, res) => {
     res.cookie('accessToken', accessToken, {
         httpOnly: true,
         sameSite: 'none',
-        maxAge: getMsFromEnv(process.env.ACCESS_TOKEN_EXPIRY),
+        maxAge: getMsFromEnv(envVariables.accessTokenExpiry),
         secure: true,
     });
     
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         sameSite: 'none',
-        maxAge: getMsFromEnv(process.env.REFRESH_TOKEN_EXPIRY),
+        maxAge: getMsFromEnv(envVariables.refreshTokenExpiry),
         secure: true,
     });
 
@@ -235,7 +235,7 @@ const renewToken = asyncHandler( async (req, res) => {
         throw new ApiError(401, "Unauthorized request: No token provided");
     }
     try {
-        const decodedToken = jwt.verify(userRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+        const decodedToken = jwt.verify(userRefreshToken, envVariables.refreshTokenSecret);
         const user = await User.findById(decodedToken._id)
         if (!user) {
             throw new ApiError(401, 'Unauthorized request: Invalid token');
@@ -255,14 +255,14 @@ const renewToken = asyncHandler( async (req, res) => {
          res.cookie('accessToken', accessToken, {
             httpOnly: true,
             sameSite: 'none',
-            maxAge: getMsFromEnv(process.env.ACCESS_TOKEN_EXPIRY),
+            maxAge: getMsFromEnv(envVariables.accessTokenExpiry),
             secure: true,
         });
         
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             sameSite: 'none',
-            maxAge: getMsFromEnv(process.env.REFRESH_TOKEN_EXPIRY),
+            maxAge: getMsFromEnv(envVariables.refreshTokenExpiry),
             secure: true,
         });
         const loggedInUser = await User.findById(user._id).select("-password -refreshToken");

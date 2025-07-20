@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import constant from '../constant.js';
+import constant, { envVariables } from '../constant.js';
 import { User } from '../models/user.model.js';
 import ApiError from '../utils/errorhandler.js';
 import asyncHandler from '../utils/asynchandler.js';
@@ -14,7 +14,7 @@ export const verifyJwt = asyncHandler(async (req, res, next) => {
         throw new ApiError(401, 'Unauthorized request: No token provided');
     }
     try {
-        const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        const decodedToken = jwt.verify(token, envVariables.accessTokenSecret);
         const user = await User.findById(decodedToken._id).select('-password -refreshToken');
         if (!user) {
             throw new ApiError(401, 'Unauthorized request: Invalid token');

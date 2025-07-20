@@ -1,7 +1,8 @@
 import ApiError from '../utils/errorhandler.js'
+import { envVariables } from '../constant.js';
 
 export const errorHandler = (err, req, res, next) => {
-    const isDev = process.env.ENVIRONMENT === 'DEV';
+    const isDev = envVariables.environment === 'DEV';
 
     // If the error is an instance of ApiError, use its properties
     if (err instanceof ApiError) {

@@ -1,15 +1,14 @@
 // import mongoose from 'mongoose';
 // import express from 'express';
-import dotenv from 'dotenv';
-dotenv.config();
 import connectDB from './db/db.js';
 import app from './app.js';
+import { envVariables } from './constant.js';
 
 // dotenv.config({
 //     path: './env',
 // });
 
-const port = process.env.PORT || 8000;
+const port = envVariables.port || 8000;
 
 connectDB()
     .then(() => {
@@ -33,14 +32,14 @@ const app = express();
 //! Immediately executeable function creation. Sometime we start this function like ;(() => {})() because if it is missed in previous line it will cause problems.
 (async () => {
     try {
-        console.log(process.env.PORT) ;
-        await mongoose.connect(`${process.env.MONGODB_URI}/${constant.dbName}`);
+        console.log(envVariables.port) ;
+        await mongoose.connect(`${envVariables.mongoDbUri}/${constant.dbName}`);
         app.on('error', (err) => {
             console.log('Error while listening to DB', err);
             throw err;
         });
-        app.listen(process.env.PORT, () => {
-            console.log(`App in listening on port ${process.env.PORT}`);
+        app.listen(envVariables.port, () => {
+            console.log(`App in listening on port ${envVariables.port}`);
         });
     } catch (err) {
         console.log('Error while connecting to database: ', err);
