@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { upload } from '../middleware/multer.middleware.js';
-import { loginUser, logout, registerUser, renewToken, updatePassword, currentUser, updateUser, updateUserAvatar, updateUserCoverImage, deleteUser, getUserChannelProfile, getUserWatchHistory } from '../controllers/user.controller.js';
+import { loginUser, logout, registerUser, renewToken, updatePassword, currentUser, updateUser, updateUserAvatar, updateUserCoverImage, deleteUser, getUserChannelProfile, getUserWatchHistory, getAllUsers, getUserById } from '../controllers/user.controller.js';
+import paginationMiddleware from '../middleware/pagination.middleware.js';
+import { User } from '../models/user.model.js';
+import { verifyJwt } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -25,12 +28,19 @@ router.route('/login').post(loginUser);
 router.route('/logout').get(logout);
 router.route('/refreshToken').post(renewToken);
 router.route('/updatePassword').post(updatePassword);
-router.route('/getUser').get(currentUser);
+router.route('/me').get(currentUser);
 router.route('/updateUser').patch(updateUser);
 router.route('/updateAvatar').patch(upload.single('avatar'), updateUserAvatar);
 router.route('/updateCover').patch(upload.single('coverImage'), updateUserCoverImage);
 router.route('/deleteUser').delete(deleteUser);
 router.route('/channel/:username').get(getUserChannelProfile);
 router.route('/watchHistory').get(getUserWatchHistory);
+router.route('/allUsers').get(paginationMiddleware(User, {
+    select: '-password -refreshToken',
+    sort: '-createdAt',
+    defaultLimit: 10,
+    maxLimit: 100
+}), getAllUsers);
+router.route('/:id').get(getUserById);
 
 export default router;

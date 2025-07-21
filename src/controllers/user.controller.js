@@ -82,6 +82,9 @@ const registerUser = asyncHandler(async (req, res, next) => {
     if (!avatarFileMimeType.startsWith(constant.mimeType.image)) {
         throw new ApiError(400, "Only image files are allowed for avatar");
     }
+    if (avatarFileMimeType !== constant.mimeType.webp) {
+        throw new ApiError(400, "Only webp images are allowed for avatar");
+    }
     
     // Validate avatar size
     const avatarFileSizeInMB = req.files?.avatar?.[0]?.size / (1024 * 1024);
@@ -104,6 +107,9 @@ const registerUser = asyncHandler(async (req, res, next) => {
         const coverImageFileMimeType = req.files?.coverImage?.[0]?.mimetype;
         if (!coverImageFileMimeType.startsWith(constant.mimeType.image)) {
             throw new ApiError(400, "Only image files are allowed for cover");
+        }
+        if (coverImageFileMimeType !== constant.mimeType.webp) {
+            throw new ApiError(400, "Only webp images are allowed for cover");
         }
     
         // Validate cover image size
@@ -309,7 +315,7 @@ const updatePassword = asyncHandler( async(req, res) => {
 })
 
 //! @desc get current user data
-//! @route GET /api/v1/users/getUser
+//! @route GET /api/v1/users/me
 //! @access Private
 const currentUser = asyncHandler( async(req, res) => {
     const userData = await User.findById(req.user._id).select('-password -refreshToken');
@@ -366,6 +372,10 @@ const updateUserAvatar = asyncHandler( async(req, res) => {
             removeLocalFile(localFilePath);
             throw new ApiError(400, "Only image files are allowed for avatar");
         }
+        if (fileMimeType !== constant.mimeType.webp) {
+            removeLocalFile(localFilePath);
+            throw new ApiError(400, "Only webp images are allowed for avatar");
+        }
 
         const fileSizeInMB = req.file?.size / (1024 * 1024);
         if (fileSizeInMB > constant.avatarImageSize) {
@@ -407,6 +417,10 @@ const updateUserCoverImage = asyncHandler (async (req, res) => {
         if (!fileMimeType.startsWith(constant.mimeType.image)) {
             removeLocalFile(localFilePath);
             throw new ApiError(400, "Only image files are allowed for cover");
+        }
+        if (fileMimeType !== constant.mimeType.webp) {
+            removeLocalFile(localFilePath);
+            throw new ApiError(400, "Only webp images are allowed for cover");
         }
 
         const fileSizeInMB = req.file?.size / (1024 * 1024);
@@ -595,4 +609,32 @@ const getUserWatchHistory = asyncHandler (async (req, res) => {
    )
 })
 
-export { registerUser, loginUser, logout, renewToken, updatePassword, currentUser, updateUser, updateUserAvatar, updateUserCoverImage, deleteUser, getUserChannelProfile, getUserWatchHistory };
+//! @desc get all users with pagination
+//! @route GET /api/v1/users
+//! @access Private (or Public, adjust as needed)
+const getAllUsers = asyncHandler(async (req, res) => {
+    const users = res.paginatedResults;
+    return res.status(200).json(
+        new ApiResponse(200, users, 'Users fetched successfully')
+    );
+});
+
+//! @desc get user by id
+//! @route GET /api/v1/users/:id
+//! @access Private
+const getUserById = asyncHandler(async (req, res, next) => {
+    const { id } = req.params;
+    // Validate MongoDB ObjectId
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        throw new ApiError(400, 'Invalid user id');
+    }
+    const user = await User.findById(id).select('-password -refreshToken');
+    if (!user) {
+        throw new ApiError(404, 'User not found');
+    }
+    return res.status(200).json(
+        new ApiResponse(200, user, 'User fetched successfully')
+    );
+});
+
+export { registerUser, loginUser, logout, renewToken, updatePassword, currentUser, updateUser, updateUserAvatar, updateUserCoverImage, deleteUser, getUserChannelProfile, getUserWatchHistory, getAllUsers, getUserById };
