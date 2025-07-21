@@ -17,9 +17,7 @@ cloudinary.config({
     api_key: envVariables.cloudinaryApiKey,
     api_secret: envVariables.cloudinaryApiSecret,
 });
-console.log("envVariables.cloudinaryCloudName: ", envVariables.cloudinaryCloudName);
-console.log("envVariables.cloudinaryApiKey: ", envVariables.cloudinaryApiKey);
-console.log("envVariables.cloudinaryApiSecret: ", envVariables.cloudinaryApiSecret);
+
 /** 
  *! We can use origin: * if frontend doesn't have these below two options  
  *! use withCredentials: true in case of axios 
