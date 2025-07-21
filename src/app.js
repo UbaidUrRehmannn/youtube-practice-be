@@ -85,6 +85,14 @@ app.get('/api/v1/health-check', async (req, res) => {
     });
 });
 
+app.get('/api/v1/health-check-be', async (req, res) => {
+    res.status(200).json({
+        data: null,
+        status: 200,
+        message: 'Health check completed',
+    });
+});
+
 app.use(errorHandler);
 
 export default app;
