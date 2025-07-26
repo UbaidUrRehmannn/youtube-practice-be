@@ -294,9 +294,11 @@
  *             properties:
  *               title:
  *                 type: string
+ *                 description: Title of the tweet
  *                 example: "My First Tweet"
  *               description:
  *                 type: string
+ *                 description: Rich text content of the tweet
  *                 example: "This is my first tweet with <b>rich text</b> content!"
  *               status:
  *                 type: string
@@ -325,6 +327,7 @@
  *                 type: array
  *                 items:
  *                   type: string
+ *                 description: Array of tags for categorization
  *                 example: ["technology", "programming"]
  *               image:
  *                 type: string
@@ -337,6 +340,13 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/TweetResponse'
+ *             example:
+ *               statusCode: 201
+ *               data:
+ *                 tweet:
+ *                   $ref: '#/components/schemas/Tweet'
+ *               message: "Tweet created successfully"
+ *               success: true
  *       400:
  *         description: Bad request - validation error
  *       401:
@@ -404,6 +414,18 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/TweetsResponse'
+ *             example:
+ *               statusCode: 200
+ *               data:
+ *                 tweets:
+ *                   - $ref: '#/components/schemas/Tweet'
+ *                 pagination:
+ *                   page: 1
+ *                   limit: 10
+ *                   totalPages: 5
+ *                   totalItems: 48
+ *               message: "Tweets fetched successfully"
+ *               success: true
  *       400:
  *         description: Bad request - invalid parameters
  */
@@ -433,6 +455,13 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/TweetResponse'
+ *             example:
+ *               statusCode: 200
+ *               data:
+ *                 tweet:
+ *                   $ref: '#/components/schemas/Tweet'
+ *               message: "Tweet fetched successfully"
+ *               success: true
  *       404:
  *         description: Tweet not found
  *       403:
@@ -486,6 +515,18 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/TweetsResponse'
+ *             example:
+ *               statusCode: 200
+ *               data:
+ *                 tweets:
+ *                   - $ref: '#/components/schemas/Tweet'
+ *                 pagination:
+ *                   page: 1
+ *                   limit: 10
+ *                   totalPages: 2
+ *                   totalItems: 12
+ *               message: "Your tweets fetched successfully"
+ *               success: true
  *       401:
  *         description: Unauthorized - authentication required
  */
@@ -519,21 +560,26 @@
  *             properties:
  *               title:
  *                 type: string
+ *                 description: Updated title of the tweet
  *                 example: "Updated Tweet Title"
  *               description:
  *                 type: string
+ *                 description: Updated rich text content
  *                 example: "Updated content with <i>new formatting</i>"
  *               status:
  *                 type: string
  *                 enum: [draft, awaiting_approval, approved, published, rejected, archived]
+ *                 description: New status for the tweet (admin/moderator only for others' tweets)
  *                 example: "published"
  *               isSensitive:
  *                 type: boolean
+ *                 description: Mark if the tweet contains sensitive content
  *                 example: false
  *               tags:
  *                 type: array
  *                 items:
  *                   type: string
+ *                 description: Updated array of tags
  *                 example: ["updated", "tags"]
  *               image:
  *                 type: string
@@ -546,6 +592,13 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/TweetResponse'
+ *             example:
+ *               statusCode: 200
+ *               data:
+ *                 tweet:
+ *                   $ref: '#/components/schemas/Tweet'
+ *               message: "Tweet updated successfully"
+ *               success: true
  *       400:
  *         description: Bad request - validation error
  *       401:
@@ -586,6 +639,13 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/TweetResponse'
+ *             example:
+ *               statusCode: 200
+ *               data:
+ *                 tweet:
+ *                   $ref: '#/components/schemas/Tweet'
+ *               message: "Tweet status updated successfully"
+ *               success: true
  *       400:
  *         description: Bad request - invalid status
  *       401:
@@ -619,21 +679,11 @@
  *         description: Tweet deleted successfully
  *         content:
  *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 data:
- *                   type: object
- *                   example: {}
- *                 message:
- *                   type: string
- *                   example: "Tweet deleted successfully"
- *                 success:
- *                   type: boolean
- *                   example: true
+ *             example:
+ *               statusCode: 200
+ *               data: {}
+ *               message: "Tweet deleted successfully"
+ *               success: true
  *       401:
  *         description: Unauthorized - authentication required
  *       403:
@@ -667,6 +717,14 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/LikeResponse'
+ *             example:
+ *               statusCode: 200
+ *               data:
+ *                 isLiked: true
+ *                 likesCount: 15
+ *                 dislikesCount: 2
+ *               message: "Tweet liked"
+ *               success: true
  *       401:
  *         description: Unauthorized - authentication required
  *       404:
@@ -696,30 +754,14 @@
  *         description: Dislike status toggled successfully
  *         content:
  *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 data:
- *                   type: object
- *                   properties:
- *                     isDisliked:
- *                       type: boolean
- *                       example: true
- *                     likesCount:
- *                       type: integer
- *                       example: 15
- *                     dislikesCount:
- *                       type: integer
- *                       example: 3
- *                 message:
- *                   type: string
- *                   example: "Tweet disliked"
- *                 success:
- *                   type: boolean
- *                   example: true
+ *             example:
+ *               statusCode: 200
+ *               data:
+ *                 isDisliked: true
+ *                 likesCount: 15
+ *                 dislikesCount: 3
+ *               message: "Tweet disliked"
+ *               success: true
  *       401:
  *         description: Unauthorized - authentication required
  *       404:
@@ -748,27 +790,13 @@
  *         description: Repost status toggled successfully
  *         content:
  *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 data:
- *                   type: object
- *                   properties:
- *                     isReposted:
- *                       type: boolean
- *                       example: true
- *                     repostsCount:
- *                       type: integer
- *                       example: 8
- *                 message:
- *                   type: string
- *                   example: "Tweet reposted"
- *                 success:
- *                   type: boolean
- *                   example: true
+ *             example:
+ *               statusCode: 200
+ *               data:
+ *                 isReposted: true
+ *                 repostsCount: 8
+ *               message: "Tweet reposted"
+ *               success: true
  *       401:
  *         description: Unauthorized - authentication required
  *       404:
@@ -847,46 +875,20 @@
  *         description: Tweets fetched for moderation successfully
  *         content:
  *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 statusCode:
- *                   type: integer
- *                   example: 200
- *                 data:
- *                   type: object
- *                   properties:
- *                     tweets:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Tweet'
- *                     pagination:
- *                       type: object
- *                       properties:
- *                         page:
- *                           type: integer
- *                           example: 1
- *                         limit:
- *                           type: integer
- *                           example: 10
- *                         totalPages:
- *                           type: integer
- *                           example: 5
- *                         totalTweets:
- *                           type: integer
- *                           example: 48
- *                         hasNextPage:
- *                           type: boolean
- *                           example: true
- *                         hasPrevPage:
- *                           type: boolean
- *                           example: false
- *                 message:
- *                   type: string
- *                   example: "Tweets fetched for moderation successfully"
- *                 success:
- *                   type: boolean
- *                   example: true
+ *             example:
+ *               statusCode: 200
+ *               data:
+ *                 tweets:
+ *                   - $ref: '#/components/schemas/Tweet'
+ *                 pagination:
+ *                   page: 1
+ *                   limit: 10
+ *                   totalPages: 3
+ *                   totalTweets: 25
+ *                   hasNextPage: true
+ *                   hasPrevPage: false
+ *               message: "Tweets fetched for moderation successfully"
+ *               success: true
  *       401:
  *         description: Unauthorized - authentication required
  *       403:
