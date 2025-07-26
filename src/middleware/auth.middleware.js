@@ -5,19 +5,24 @@ import ApiError from '../utils/errorhandler.js';
 import asyncHandler from '../utils/asynchandler.js';
 
 export const verifyJwt = asyncHandler(async (req, res, next) => {
-    // Check if the route is public and bypass verification if true
-    if (constant.publicRouts.some(route => req.path.includes(route))) {
-        return next();
-    }
-    const token =  req.cookies?.accessToken || req.header('Authorization')?.replace('Bearer ', '');
+    const token = req.cookies?.accessToken || req.header('Authorization')?.replace('Bearer ', '');
+    
+    // If no token, continue (for public routes) or throw error (for protected routes)
     if (!token) {
+        if (constant.publicRouts.some(route => req.path.includes(route))) {
+            return next(); // Public route, no token required
+        }
         throw new ApiError(401, 'Unauthorized request: No token provided');
     }
+    
     try {
         const decodedToken = jwt.verify(token, envVariables.accessTokenSecret);
         const user = await User.findById(decodedToken._id).select('-password -refreshToken');
         if (!user) {
             throw new ApiError(401, 'Unauthorized request: Invalid token');
+        }
+        if (user.isDisabled) {
+            throw new ApiError(403, 'User account is disabled');
         }
         req.user = user;
         next();

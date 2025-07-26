@@ -3,11 +3,15 @@ import express from 'express';
 import constant, { envVariables } from './constant.js';
 import cookieParser from 'cookie-parser';
 import userRouter from './routes/user.routes.js';
+import tweetRouter from './routes/tweet.routes.js';
 import { errorHandler } from './middleware/errorHandler.middleware.js';
 import { verifyJwt } from './middleware/auth.middleware.js';
+import requireRoutePermission from './middleware/role.middleware.js';
 import mongoose from 'mongoose';
 import os from 'os';
 import { v2 as cloudinary } from 'cloudinary';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './docs/swagger.config.js';
 
 const app = express();
 
@@ -43,9 +47,12 @@ app.use(
 app.use(express.static('public'));
 app.use(cookieParser());
 app.use(verifyJwt);
+app.use(requireRoutePermission);
 
 //routes declaration
 app.use('/api/v1/user', userRouter);
+app.use('/api/v1/tweet', tweetRouter);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 //! @desc use to check if BE is running or not
 //! @route GET /api/v1/health-check

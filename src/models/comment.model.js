@@ -1,24 +1,21 @@
-import { Schema, modal } from 'mongoose';
-import mongooseAggregatePaginate from 'mongoose-aggregate-paginate-v2';
+import { Schema, model } from 'mongoose';
 
 const commentSchema = new Schema(
     {
-        content: {
-            type: 'string',
-            required: true
-        },
-        video: {
+        content: { type: String, required: true },
+        owner: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        commentable: {
             type: Schema.Types.ObjectId,
-            ref: 'Video'
+            required: true,
+            refPath: 'onModel',
         },
-        owner: {
-            type: Schema.Types.ObjectId,
-            ref: 'User'
-        }
+        onModel: {
+            type: String,
+            required: true,
+            enum: ['Video', 'Tweet'],
+        },
     },
-    {timestamps: true}
-)
+    { timestamps: true }
+);
 
-commentSchema.plugin(mongooseAggregatePaginate);
-
-export const Comment = modal('Comment', commentSchema);
+export const Comment = model('Comment', commentSchema);

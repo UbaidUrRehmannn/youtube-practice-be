@@ -22,7 +22,7 @@ const isProduction = envVariables.environment === 'PROD';
 const registerUser = asyncHandler(async (req, res, next) => {
     // console.log("req.body: ", req.body);
     // console.log("req.files: ", req.files);
-    const { userName, email, fullName, password } = req.body;
+    const { userName, email, fullName, password, role } = req.body;
 
     // Check for individual fields and throw specific error messages
     if (isEmpty(userName)) {
@@ -125,13 +125,31 @@ const registerUser = asyncHandler(async (req, res, next) => {
         }
     }
 
+    // Handle role assignment based on authentication status
+    let userRole = 'user'; // Default role
+    
+    if (req.user && req.user.role === 'admin') {
+        // Admin is logged in - can set custom role
+        if (role) {
+            // Check if role is valid
+            if (['user', 'admin', 'moderator'].includes(role)) {
+                userRole = role;
+            } else {
+                throw new ApiError(400, 'Invalid role. Must be user, admin, or moderator');
+            }
+        }
+        // If no role specified in body, userRole remains 'user' (default)
+    }
+    // If no token (public signup) or non-admin, userRole remains 'user'
+    
     const user = await User.create({
         fullName,
         avatar: avatar.url,
         coverImage: coverImage ? coverImage.url : '',
         email,
         password,
-        userName: userName.toLowerCase()
+        userName: userName.toLowerCase(),
+        role: userRole
     });
 
     const newUser = await User.findById(user._id).select("-password -refreshToken");
@@ -331,29 +349,70 @@ const forgotPassword = asyncHandler( async(req, res) => {
    
 })
 
-//! @desc update user data
-//! @route POST /api/v1/users/updateUser
+//! @desc update user data or admin update any user
+//! @route PATCH /api/v1/users/updateUser/:id?
 //! @access Private
-const updateUser = asyncHandler( async(req, res) => {
-    const {email, fullName} = req.body;
+const updateUser = asyncHandler(async (req, res) => {
+    const { email, fullName, role, isDisabled } = req.body;
+    const { id } = req.params;
+    let targetUserId = req.user._id; // Default to current user
 
-    const user = await User.findById(req.user._id).select('-password -refreshToken')
-    
-    if ((fullName && user.fullName === fullName) && (email && user.email === email.toLowerCase())) {
-        throw new ApiError(400, "Please updat atleast one field");
+    // If ID is provided, only admin can update another user
+    if (id) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            throw new ApiError(400, 'Invalid user id');
+        }
+        if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
+            throw new ApiError(403, 'Only admin or moderator can update other users');
+        }
+        targetUserId = id;
+    }
+
+    const user = await User.findById(targetUserId).select('-password -refreshToken');
+    if (!user) {
+        throw new ApiError(404, 'User not found');
+    }
+
+    if (
+        fullName &&
+        user.fullName === fullName &&
+        email &&
+        user.email === email.toLowerCase()
+    ) {
+        throw new ApiError(400, 'Please update at least one field');
     }
     if (email && user.email !== email) {
-        if (!isValidEmail(email)) throw new ApiError(400, "Invalid email format");
-        user.email = email
+        if (!isValidEmail(email)) throw new ApiError(400, 'Invalid email format');
+        user.email = email;
     }
     if (fullName && user.fullName !== fullName) {
-        user.fullName = fullName
+        user.fullName = fullName;
     }
-    await user.save({validateBeforeSave: false});
+    // Only admin can update role, but admin and moderator can update isDisabled
+    if (req.user.role === 'admin') {
+        if (role && ['user', 'admin', 'moderator'].includes(role)) {
+            user.role = role;
+        } else if (role) {
+            throw new ApiError(400, 'Invalid role');
+        }
+        if (typeof isDisabled === 'boolean') {
+            user.isDisabled = isDisabled;
+        }
+    } else if (req.user.role === 'moderator') {
+        if (typeof isDisabled === 'boolean') {
+            user.isDisabled = isDisabled;
+        }
+        if (role) {
+            throw new ApiError(403, 'Only admin can update role');
+        }
+    } else if (role || typeof isDisabled !== 'undefined') {
+        throw new ApiError(403, 'Only admin or moderator can update isDisabled, and only admin can update role');
+    }
+    await user.save({ validateBeforeSave: false });
     return res.status(200).json(
-        new ApiResponse(200, {userData: user}, 'User updated successfully')
-    )
-})
+        new ApiResponse(200, { userData: user }, 'User updated successfully')
+    );
+});
 
 //! @desc update user avatar
 //! @route POST /api/v1/users/updateAvatar
@@ -448,26 +507,55 @@ const updateUserCoverImage = asyncHandler (async (req, res) => {
     }
 })
 
-//! @desc delete current user
-//! @route GET /api/v1/users/deleteUser
+//! @desc delete current user or admin delete any user
+//! @route DELETE /api/v1/users/deleteUser/:id?
 //! @access Private
-const deleteUser = asyncHandler (async (req, res) => {
-    const user = await User.findById(req.user._id);
-
+const deleteUser = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    let targetUserId = req.user._id; // Default to current user
+    
+    // If ID is provided, only admin can delete another user
+    if (id) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            throw new ApiError(400, 'Invalid user id');
+        }
+        if (req.user.role !== 'admin') {
+            throw new ApiError(403, 'Only admin can delete other users');
+        }
+        targetUserId = id;
+    }
+    
+    // User deleting their own account or admin deleting any user
+    const user = await User.findById(targetUserId);
+    if (!user) {
+        throw new ApiError(404, 'User not found');
+    }
+    
+    // Delete user's images
     await deleteImage(user.avatar);
     await deleteImage(user.coverImage);
-
-    await User.findByIdAndDelete(req.user._id);
-    const cookieOptions = {
-        httpOnly: true,
-        secure: true,
-        maxAge: 0
-    };
-
-    return res.status(200).clearCookie('accessToken', cookieOptions).clearCookie('refreshToken', cookieOptions).json(
+    
+    // Delete the user
+    await User.findByIdAndDelete(targetUserId);
+    
+    // Clear cookies if user is deleting themselves
+    if (targetUserId.toString() === req.user._id.toString()) {
+        const cookieOptions = {
+            httpOnly: true,
+            secure: true,
+            maxAge: 0
+        };
+        
+        return res.status(200)
+            .clearCookie('accessToken', cookieOptions)
+            .clearCookie('refreshToken', cookieOptions)
+            .json(new ApiResponse(200, {}, 'User deleted successfully'));
+    }
+    
+    return res.status(200).json(
         new ApiResponse(200, {}, 'User deleted successfully')
-    )
-})
+    );
+});
 
 //! @desc get user/channel profile data
 //! @route GET /api/v1/users/channel/{username}
@@ -610,12 +698,107 @@ const getUserWatchHistory = asyncHandler (async (req, res) => {
 })
 
 //! @desc get all users with pagination
-//! @route GET /api/v1/users
-//! @access Private (or Public, adjust as needed)
+//! @route GET /api/v1/users/allUsers
+//! @access Private (authenticated users)
 const getAllUsers = asyncHandler(async (req, res) => {
-    const users = res.paginatedResults;
+    // Validate that pagination middleware has been applied
+    if (!res.paginatedResults) {
+        throw new ApiError(500, 'Pagination middleware not applied');
+    }
+
+    const { results: users, page, limit, totalPages, totalResults, hasNextPage, hasPrevPage } = res.paginatedResults;
+
+    // Additional security: Ensure sensitive data is not exposed
+    const sanitizedUsers = users.map(user => {
+        const userObj = user.toObject ? user.toObject() : user;
+        // Double-check that sensitive fields are removed
+        delete userObj.password;
+        delete userObj.refreshToken;
+        return userObj;
+    });
+
     return res.status(200).json(
-        new ApiResponse(200, users, 'Users fetched successfully')
+        new ApiResponse(200, {
+            users: sanitizedUsers,
+            pagination: {
+                page,
+                limit,
+                totalPages,
+                totalResults,
+                hasNextPage,
+                hasPrevPage
+            }
+        }, 'Users fetched successfully')
+    );
+});
+
+/**
+ * Get users for moderation (admin/moderator only)
+ * @route GET /api/v1/user/moderate
+ * @access Private (admin/moderator only)
+ */
+const getUserModeration = asyncHandler(async (req, res) => {
+    const { username, email, fullName, role, isDisabled, page = 1, limit = 10 } = req.query;
+    const currentUserId = req.user._id;
+    const userRole = req.user.role;
+
+    // Check permissions
+    if (userRole !== 'admin' && userRole !== 'moderator') {
+        throw new ApiError(403, 'Only admin and moderator can access user moderation');
+    }
+
+    // Build filter object
+    const filter = {};
+
+    // Exclude self from results
+    filter._id = { $ne: currentUserId };
+
+    // Exclude admin users if current user is moderator
+    if (userRole === 'moderator') {
+        filter.role = { $ne: 'admin' };
+    }
+
+    // Apply search filters
+    if (username) {
+        filter.userName = { $regex: username, $options: 'i' };
+    }
+    if (email) {
+        filter.email = { $regex: email, $options: 'i' };
+    }
+    if (fullName) {
+        filter.fullName = { $regex: fullName, $options: 'i' };
+    }
+    if (role && Object.values(userRoles).includes(role)) {
+        filter.role = role;
+    }
+    if (typeof isDisabled === 'boolean') {
+        filter.isDisabled = isDisabled;
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const totalUsers = await User.countDocuments(filter);
+    const totalPages = Math.ceil(totalUsers / parseInt(limit));
+
+    // Get users with pagination
+    const users = await User.find(filter)
+        .select('-password -refreshToken')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            users,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages,
+                totalUsers,
+                hasNextPage: parseInt(page) < totalPages,
+                hasPrevPage: parseInt(page) > 1
+            }
+        }, 'Users fetched for moderation successfully')
     );
 });
 
@@ -637,4 +820,20 @@ const getUserById = asyncHandler(async (req, res, next) => {
     );
 });
 
-export { registerUser, loginUser, logout, renewToken, updatePassword, currentUser, updateUser, updateUserAvatar, updateUserCoverImage, deleteUser, getUserChannelProfile, getUserWatchHistory, getAllUsers, getUserById };
+export {
+    registerUser,
+    loginUser,
+    logout,
+    renewToken,
+    updatePassword,
+    currentUser,
+    updateUser,
+    updateUserAvatar,
+    updateUserCoverImage,
+    deleteUser,
+    getUserChannelProfile,
+    getUserWatchHistory,
+    getAllUsers,
+    getUserById,
+    getUserModeration,
+};
