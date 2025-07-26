@@ -96,6 +96,38 @@ The documentation includes:
 - Query parameters and pagination
 - Error responses
 
+## 📚 More Documentation
+- [Moderation API Guide](./MODERATION_API_GUIDE.md)
+- [Notes](./notes.md)
+
+## 🗂️ Project Structure
+```
+youtube-backend/
+  ├── src/           # Source code (controllers, models, routes, middleware, utils)
+  ├── public/        # Public assets
+  ├── Readme.md      # Main project documentation
+  ├── MODERATION_API_GUIDE.md # Moderation API details
+  ├── notes.md       # Aggregation and other notes
+  └── ...
+```
+
+## 🤝 Contributing
+We welcome contributions! To contribute:
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature/your-feature`)
+3. Commit your changes (`git commit -am 'Add new feature'`)
+4. Push to the branch (`git push origin feature/your-feature`)
+5. Open a Pull Request
+
+Please follow the existing code style and add tests where appropriate.
+
+## 💬 Support
+For questions, issues, or suggestions:
+- Open an [issue on GitHub](https://github.com/your-repo/issues)
+- Or contact the maintainer via email (add your email here)
+
+---
+
 ## 🗄️ **Database Models**
 
 - **User**: Authentication, profiles, roles

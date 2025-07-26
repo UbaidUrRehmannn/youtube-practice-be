@@ -1,5 +1,30 @@
 # Moderation API Guide
 
+## 📑 Table of Contents
+- [Authentication & Authorization](#authentication--authorization)
+- [User Moderation API](#user-moderation-api)
+- [Tweet Moderation API](#tweet-moderation-api)
+- [Related Moderation Actions](#related-moderation-actions)
+- [Error Responses](#error-responses)
+- [Best Practices](#best-practices)
+- [Workflow Examples](#workflow-examples)
+- [Related Documentation](#related-documentation)
+- [Quick Start](#quick-start)
+- [FAQ](#faq)
+
+---
+
+## 🚀 Quick Start
+
+1. **Authenticate**: Obtain a JWT token by logging in as an admin or moderator.
+2. **Moderate Users**: Use `GET /api/v1/user/moderate` to search, filter, and manage users.
+3. **Moderate Tweets**: Use `GET /api/v1/tweet/moderate` to review, approve, or reject tweets.
+4. **Update Status**: Use the PATCH endpoints to update user or tweet status as needed.
+
+---
+
+# Moderation API Guide
+
 This guide provides comprehensive documentation for the moderation system endpoints, including user and tweet moderation capabilities.
 
 ## 🔐 **Authentication & Authorization**
@@ -301,3 +326,24 @@ curl -X PATCH "http://localhost:8088/api/v1/tweet/updateTweet/TWEET_ID" \
 - [User Management API](./src/docs/user.swagger.js)
 - [Tweet Management API](./src/docs/tweet.swagger.js)
 - [Health Check API](./src/docs/health.swagger.js) 
+
+---
+
+## ❓ FAQ
+
+**Q: Who can access moderation endpoints?**
+A: Only users with the 'admin' or 'moderator' role and a valid JWT token.
+
+**Q: Can moderators see admin users or tweets?**
+A: No, moderators are restricted from viewing admin users and admin tweets in moderation endpoints.
+
+**Q: How do I approve or reject a tweet?**
+A: Use the PATCH `/api/v1/tweet/updateTweetStatus/:id` endpoint with the desired status in the request body.
+
+**Q: What should I do if I get a 403 Forbidden error?**
+A: Ensure your JWT token is valid and your user role has the required permissions for the endpoint.
+
+**Q: Where can I find more API documentation?**
+A: See the [Main API Documentation](http://localhost:8088/api-docs) or the links in the [Related Documentation](#related-documentation) section.
+
+--- 
