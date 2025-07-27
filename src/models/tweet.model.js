@@ -77,4 +77,12 @@ tweetSchema.index({ author: 1, status: 1, createdAt: -1 });
 tweetSchema.index({ status: 1, createdAt: -1 });
 tweetSchema.index({ isSensitive: 1, status: 1, createdAt: -1 });
 
+// Additional indexes for aggregation optimization
+tweetSchema.index({ title: 'text', description: 'text', tags: 'text' }); // Text search index
+tweetSchema.index({ author: 1, createdAt: -1 }); // For getMyTweets
+tweetSchema.index({ status: 1, author: 1, createdAt: -1 }); // For moderation queries
+tweetSchema.index({ likes: 1 }); // For like operations
+tweetSchema.index({ dislikes: 1 }); // For dislike operations
+tweetSchema.index({ reposts: 1 }); // For repost operations
+
 export const Tweet = model('Tweet', tweetSchema);

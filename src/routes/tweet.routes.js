@@ -11,7 +11,10 @@ import {
     likeTweet,
     dislikeTweet,
     repostTweet,
-    getTweetModeration
+    getTweetModeration,
+    getTweetLikes,
+    getTweetDislikes,
+    getTweetReposts
 } from '../controllers/tweet.controller.js';
 import paginationMiddleware from '../middleware/pagination.middleware.js';
 import { Tweet } from '../models/tweet.model.js';
@@ -82,5 +85,10 @@ router.route('/repostTweet/:id').post(repostTweet);
 
 // Tweet moderation endpoint (admin/moderator only)
 router.route('/moderate').get(getTweetModeration);
+
+// Get users who liked/disliked/reposted a tweet
+router.route('/:id/likes').get(getTweetLikes);
+router.route('/:id/dislikes').get(getTweetDislikes);
+router.route('/:id/reposts').get(getTweetReposts);
 
 export default router; 

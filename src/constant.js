@@ -10,7 +10,18 @@ const constant = {
         image: 'image/',
         webp: 'image/webp',
     },
-    publicRouts: ['/health-check', '/register', '/login', '/api-docs'],
+    publicRouts: [
+        '/health-check', 
+        '/health-check-be', 
+        '/register', 
+        '/login', 
+        '/api-docs', 
+        '/tweet/getAllTweets', 
+        '/tweet/getTweetById/:id',
+        '/tweet/:id/likes',
+        '/tweet/:id/dislikes',
+        '/tweet/:id/reposts'
+    ],
     messages: {
         error: 'Something went wrong',
         success: 'Success',
@@ -103,8 +114,15 @@ export const resourcePermissions = {
   },
   
   tweet: {
-    // Public actions - anyone can view published tweets
-    public: ['getAllTweets', 'getTweetById', 'searchTweets'],
+    // Public actions - anyone can view published tweets and user lists
+    public: [
+      'getAllTweets', 
+      'getTweetById', 
+      'searchTweets',
+      ':id/likes',      // Get users who liked a tweet
+      ':id/dislikes',   // Get users who disliked a tweet
+      ':id/reposts'     // Get users who reposted a tweet
+    ],
     
     // Authenticated actions - all logged-in users can create and manage their own tweets
     authenticated: [
