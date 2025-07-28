@@ -31,8 +31,8 @@ cloudinary.config({
  */ 
 app.use(
     cors({
-        origin: envVariables.frontendUrl,
-        // origin: '*',
+        // origin: envVariables.frontendUrl,
+        origin: '*',
         credentials: true,
     }),
 );

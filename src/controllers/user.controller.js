@@ -7,7 +7,7 @@ import { uploadImage, deleteImage, removeLocalFile } from '../utils/cloudinary.j
 import ApiResponse from '../utils/responsehandler.js';
 import { generateAccessAndRefreshToken } from '../utils/common.js';
 import { isValidEmail, isEmpty } from '../utils/validationUtils.js';
-import constant, { envVariables } from '../constant.js';
+import constant, { envVariables, userRoles } from '../constant.js';
 import mongoose from 'mongoose';
 
 const getMsFromEnv = (timeStr) => {
