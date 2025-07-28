@@ -103,22 +103,29 @@ const canViewTweet = (tweet, user) => {
     if (tweet.status === tweetStatuses.PUBLISHED) return true;
     if (!user) return false;
 
-    const isOwner = tweet.author.toString() === user._id.toString();
+    const isOwner = tweet.author._id.toString() === user._id.toString();
     const isAdmin = user.role === userRoles.ADMIN;
     const isModerator = user.role === userRoles.MODERATOR;
-
     return isOwner || isAdmin || isModerator;
-};
+};    
 
 // Helper function for consistent validation and error handling
 const validateTweetId = (id) => {
     if (!id) {
         throw new ApiError(400, 'Tweet ID is required');
     }
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    
+    // Trim the ID to handle whitespace
+    const trimmedId = typeof id === 'string' ? id.trim() : id;
+    
+    if (!trimmedId) {
+        throw new ApiError(400, 'Tweet ID is required');
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(trimmedId)) {
         throw new ApiError(400, 'Invalid tweet ID');
     }
-    return new mongoose.Types.ObjectId(id);
+    return new mongoose.Types.ObjectId(trimmedId);
 };
 
 // Helper function to validate status
@@ -131,10 +138,21 @@ const validateStatus = (status) => {
 
 // Helper function to validate author ID
 const validateAuthorId = (authorId) => {
-    if (authorId && !mongoose.Types.ObjectId.isValid(authorId)) {
+    if (!authorId) {
+        return null;
+    }
+    
+    // Trim the author ID to handle whitespace
+    const trimmedAuthorId = typeof authorId === 'string' ? authorId.trim() : authorId;
+    
+    if (!trimmedAuthorId) {
+        return null;
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(trimmedAuthorId)) {
         throw new ApiError(400, 'Invalid author ID');
     }
-    return authorId ? new mongoose.Types.ObjectId(authorId) : null;
+    return new mongoose.Types.ObjectId(trimmedAuthorId);
 };
 
 // Helper function to validate and sanitize pagination parameters
@@ -210,9 +228,18 @@ const AGGREGATION_STAGES = {
     // Project tweet fields (without arrays)
     projectTweetFields: {
         $project: {
-            likes: 0,
-            dislikes: 0,
-            reposts: 0,
+            _id: 1,
+            title: 1,
+            description: 1,
+            tags: 1,
+            image: 1,
+            status: 1,
+            isSensitive: 1,
+            likesCount: 1,
+            dislikesCount: 1,
+            repostsCount: 1,
+            createdAt: 1,
+            updatedAt: 1,
             author: {
                 _id: 1,
                 userName: 1,
@@ -225,9 +252,18 @@ const AGGREGATION_STAGES = {
     // Project tweet fields with role (for moderation)
     projectTweetFieldsWithRole: {
         $project: {
-            likes: 0,
-            dislikes: 0,
-            reposts: 0,
+            _id: 1,
+            title: 1,
+            description: 1,
+            tags: 1,
+            image: 1,
+            status: 1,
+            isSensitive: 1,
+            likesCount: 1,
+            dislikesCount: 1,
+            repostsCount: 1,
+            createdAt: 1,
+            updatedAt: 1,
             author: {
                 _id: 1,
                 userName: 1,
@@ -297,12 +333,30 @@ const AGGREGATION_STAGES = {
     // Project comment fields
     projectCommentFields: {
         $project: {
-            commentAuthors: 0,
-            'comments.author': {
+            _id: 1,
+            title: 1,
+            description: 1,
+            tags: 1,
+            image: 1,
+            status: 1,
+            isSensitive: 1,
+            likesCount: 1,
+            dislikesCount: 1,
+            repostsCount: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            author: 1,
+            comments: {
                 _id: 1,
-                userName: 1,
-                fullName: 1,
-                avatar: 1,
+                content: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                author: {
+                    _id: 1,
+                    userName: 1,
+                    fullName: 1,
+                    avatar: 1,
+                },
             },
         },
     },
@@ -398,15 +452,43 @@ const buildSearchFilter = (searchTerm) => {
 
 // Helper function to determine tweet status based on user role and content
 const determineTweetStatus = (userRole, status, isSensitive) => {
+    // If status is provided, validate it first
+    if (status) {
+        const validatedStatus = validateStatus(status);
+        
+        // If user explicitly sets status to draft, respect that choice
+        if (validatedStatus === tweetStatuses.DRAFT) {
+            return validatedStatus;
+        }
+        
+        // For other statuses, apply role-based restrictions
+        if (userRole === userRoles.ADMIN) {
+            return validatedStatus; // Admin can set any status
+        } else if (userRole === userRoles.MODERATOR) {
+            // Moderator can set draft, awaiting_approval, approved, but not published
+            if (validatedStatus === tweetStatuses.PUBLISHED) {
+                throw new ApiError(403, 'Moderators cannot publish tweets directly');
+            }
+            return validatedStatus;
+        } else {
+            // Regular users can only set draft or awaiting_approval
+            if (validatedStatus === tweetStatuses.PUBLISHED || validatedStatus === tweetStatuses.APPROVED) {
+                throw new ApiError(403, 'Users can only save tweet as draft');
+            }
+            return validatedStatus;
+        }
+    }
+    
+    // If no status provided, use default based on role and content
     if (userRole === userRoles.ADMIN) {
-        return validateStatus(status) || tweetStatuses.PUBLISHED;
+        return tweetStatuses.PUBLISHED;
     } else if (userRole === userRoles.MODERATOR) {
-        return validateStatus(status) || tweetStatuses.AWAITING_APPROVAL;
+        return tweetStatuses.AWAITING_APPROVAL;
     } else if (isSensitive && userRole !== userRoles.ADMIN) {
-        // User always gets awaiting_approval regardless of what they send
+        // Sensitive content always goes to awaiting_approval for user and moderators
         return tweetStatuses.AWAITING_APPROVAL;
     } else {
-        return validateStatus(status) || tweetStatuses.AWAITING_APPROVAL;
+        return tweetStatuses.AWAITING_APPROVAL;
     }
 };
 
@@ -704,7 +786,7 @@ const updateTweet = asyncHandler(async (req, res) => {
         userRole,
     );
 
-    // --- USER: Can only update own tweet, cannot set status, always awaiting_approval ---
+    // --- USER: Can only update own tweet, can set status to draft ---
     if (userRole === userRoles.USER) {
         if (!isOwner) {
             throw new ApiError(403, 'You can only update your own tweets');
@@ -722,8 +804,8 @@ const updateTweet = asyncHandler(async (req, res) => {
         const imageUrl = await handleImageUpload(req, targetTweet.image);
         if (imageUrl !== undefined) targetTweet.image = imageUrl;
 
-        // Always set status to awaiting_approval
-        targetTweet.status = tweetStatuses.AWAITING_APPROVAL;
+        // Determine status using the new function
+        targetTweet.status = determineTweetStatus(userRole, status, targetTweet.isSensitive);
         await targetTweet.save();
 
         // Get populated tweet
@@ -755,8 +837,8 @@ const updateTweet = asyncHandler(async (req, res) => {
             const imageUrl = await handleImageUpload(req, targetTweet.image);
             if (imageUrl !== undefined) targetTweet.image = imageUrl;
 
-            // Always set status to awaiting_approval
-            targetTweet.status = tweetStatuses.AWAITING_APPROVAL;
+            // Determine status using the new function
+            targetTweet.status = determineTweetStatus(userRole, status, targetTweet.isSensitive);
         } else {
             // Can only set status for others' tweets
             validateStatus(status);

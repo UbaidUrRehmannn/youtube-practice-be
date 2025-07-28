@@ -20,7 +20,10 @@ const constant = {
         '/tweet/getTweetById/:id',
         '/tweet/:id/likes',
         '/tweet/:id/dislikes',
-        '/tweet/:id/reposts'
+        '/tweet/:id/reposts',
+        '/docs/swagger.json',
+        '/docs/openapi.yaml',
+        '/docs/postman-collection.json'
     ],
     messages: {
         error: 'Something went wrong',

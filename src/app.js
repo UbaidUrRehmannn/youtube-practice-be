@@ -46,12 +46,8 @@ app.use(
 );
 app.use(express.static('public'));
 app.use(cookieParser());
-app.use(verifyJwt);
-app.use(requireRoutePermission);
 
-//routes declaration
-app.use('/api/v1/user', userRouter);
-app.use('/api/v1/tweet', tweetRouter);
+// Public routes (no authentication required) - Define BEFORE middleware
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 //! @desc use to check if BE is running or not
@@ -97,6 +93,14 @@ app.get('/api/v1/health-check-be', async (req, res) => {
         message: 'Health check completed',
     });
 });
+
+// Apply authentication middleware AFTER public routes
+app.use(verifyJwt);
+app.use(requireRoutePermission);
+
+// Protected routes (authentication required)
+app.use('/api/v1/user', userRouter);
+app.use('/api/v1/tweet', tweetRouter);
 
 app.use(errorHandler);
 
