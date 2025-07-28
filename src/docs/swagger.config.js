@@ -10,7 +10,9 @@ const swaggerDefinition = {
     },
     servers: [
         {
-            url: 'http://localhost:' + (envVariables.port || 8088) + '/api/v1',
+            url: envVariables.environment === 'PROD' 
+                ? 'https://cloudlearner.duckdns.org:1124/api/v1'
+                : 'http://localhost:' + (envVariables.port || 8088) + '/api/v1',
         },
     ],
     components: {

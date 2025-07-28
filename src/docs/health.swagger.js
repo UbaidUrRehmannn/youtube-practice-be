@@ -85,7 +85,7 @@
  *       200:
  *         description: Health check completed successfully
  *         content:
- *           applicatio n/json:
+ *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/HealthResponse'
  *             example:
