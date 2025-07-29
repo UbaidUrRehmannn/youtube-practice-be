@@ -94,7 +94,8 @@ export const resourcePermissions = {
       'logout',
       'deleteUser',
       ':id',  // getUserById
-      'updateUser'  // Allow users to update their own profile
+      'updateUser',  // Allow users to update their own profile
+      'allUsers',    // <--- moved here from admin
     ],
     
     // Admin-only actions - only admin can access
@@ -102,7 +103,6 @@ export const resourcePermissions = {
       'deleteUser',           // DELETE /user/deleteUser
       'updateUser/:id',       // PATCH /user/updateUser/123
       'deleteUser/:id',       // DELETE /user/deleteUser/123
-      'allUsers', 
       'moderate'
     ],
     

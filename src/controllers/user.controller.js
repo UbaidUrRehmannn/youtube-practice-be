@@ -701,17 +701,34 @@ const getUserWatchHistory = asyncHandler (async (req, res) => {
 //! @route GET /api/v1/users/allUsers
 //! @access Private (authenticated users)
 const getAllUsers = asyncHandler(async (req, res) => {
-    // Validate that pagination middleware has been applied
-    if (!res.paginatedResults) {
-        throw new ApiError(500, 'Pagination middleware not applied');
-    }
+    // Extract search and filter parameters
+    const { role, isDisabled, email, userName, fullName, page = 1, limit = 10 } = req.query;
+    const filter = {};
 
-    const { results: users, page, limit, totalPages, totalResults, hasNextPage, hasPrevPage } = res.paginatedResults;
+    // Always exclude the current logged-in user
+    filter._id = { $ne: req.user._id };
 
-    // Additional security: Ensure sensitive data is not exposed
+    // Apply search filters if provided
+    if (role) filter.role = role;
+    if (typeof isDisabled !== 'undefined') filter.isDisabled = isDisabled === 'true' || isDisabled === true;
+    if (email) filter.email = { $regex: email, $options: 'i' };
+    if (userName) filter.userName = { $regex: userName, $options: 'i' };
+    if (fullName) filter.fullName = { $regex: fullName, $options: 'i' };
+
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const totalResults = await User.countDocuments(filter);
+    const totalPages = Math.ceil(totalResults / parseInt(limit));
+
+    const users = await User.find(filter)
+        .select('-password -refreshToken')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+
+    // Sanitize users (double-check sensitive fields are removed)
     const sanitizedUsers = users.map(user => {
         const userObj = user.toObject ? user.toObject() : user;
-        // Double-check that sensitive fields are removed
         delete userObj.password;
         delete userObj.refreshToken;
         return userObj;
@@ -721,12 +738,12 @@ const getAllUsers = asyncHandler(async (req, res) => {
         new ApiResponse(200, {
             users: sanitizedUsers,
             pagination: {
-                page,
-                limit,
+                page: parseInt(page),
+                limit: parseInt(limit),
                 totalPages,
                 totalResults,
-                hasNextPage,
-                hasPrevPage
+                hasNextPage: parseInt(page) < totalPages,
+                hasPrevPage: parseInt(page) > 1
             }
         }, 'Users fetched successfully')
     );
