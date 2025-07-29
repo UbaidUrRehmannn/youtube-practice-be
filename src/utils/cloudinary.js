@@ -83,12 +83,18 @@ const uploadImage = async (localFilePath) => {
         // File has been uploaded successfully
         // console.log('File: ', response);
         // console.log('File is successfully uploaded on cloudinary server: ', response.url);
-        fs.unlinkSync(localFilePath); //to delete file locally
+        // fs.unlinkSync(localFilePath); //to delete file locally
+        if (localFilePath && fs.existsSync(localFilePath)) {
+            fs.unlinkSync(localFilePath); //to delete file locally
+        }
         return response;
     } catch (error) {
         // console.log(error);
         // remove temprory saved local file as uploaded operation got failed
-        fs.unlinkSync(localFilePath);
+        // fs.unlinkSync(localFilePath);
+        if (localFilePath && fs.existsSync(localFilePath)) {
+            fs.unlinkSync(localFilePath); //to delete file locally
+        }
         return null;
     }
 };
