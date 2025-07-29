@@ -31,10 +31,17 @@ cloudinary.config({
  */ 
 app.use(
     cors({
-        // origin: envVariables.frontendUrl,
-        origin: '*',
+        origin: function(origin, callback) {
+            // Allow requests with no origin (like mobile apps, curl, etc.)
+            if (!origin) return callback(null, true);
+            if (envVariables.frontendUrls && envVariables.frontendUrls.includes(origin)) {
+                return callback(null, true);
+            }
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        },
         credentials: true,
-    }),
+    })
 );
 
 app.use(express.json({ limit: constant.dataLimit }));
