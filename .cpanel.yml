@@ -1,0 +1,7 @@
+deployment:
+  tasks:
+    - /bin/echo "🚀 Pulling latest code..."
+    - /bin/echo "📦 Installing npm packages..."
+    - /bin/npm install --prefix /home/primecle/public_html/backend
+    - /bin/echo "♻️ Restarting Node.js app..."
+    - /usr/bin/uapi --user=primecle NodeJS restart_application application_root=public_html/backend
