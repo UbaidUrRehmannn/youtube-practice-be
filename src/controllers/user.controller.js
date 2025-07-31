@@ -377,7 +377,11 @@ const updateUser = asyncHandler(async (req, res) => {
         fullName &&
         user.fullName === fullName &&
         email &&
-        user.email === email.toLowerCase()
+        user.email === email.toLowerCase() &&
+        role &&
+        user.role === role &&
+        isDisabled &&
+        user.isDisabled === isDisabled
     ) {
         throw new ApiError(400, 'Please update at least one field');
     }
