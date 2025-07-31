@@ -373,27 +373,65 @@ const updateUser = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'User not found');
     }
 
-    if (
-        fullName &&
-        user.fullName === fullName &&
-        email &&
-        user.email === email.toLowerCase() &&
-        role &&
-        user.role === role &&
-        isDisabled &&
-        user.isDisabled === isDisabled
-    ) {
+    // Track if any changes were made
+    let hasChanges = false;
+
+    // Check if any field is provided but unchanged
+    if (email && user.email === email.toLowerCase()) {
+        // Email provided but unchanged
+    } else if (email) {
+        hasChanges = true;
+    }
+    
+    if (fullName && user.fullName === fullName) {
+        // FullName provided but unchanged
+    } else if (fullName) {
+        hasChanges = true;
+    }
+    
+    if (role && user.role === role) {
+        // Role provided but unchanged
+    } else if (role) {
+        hasChanges = true;
+    }
+    
+    if (typeof isDisabled === 'boolean' && user.isDisabled === isDisabled) {
+        // isDisabled provided but unchanged
+    } else if (typeof isDisabled === 'boolean') {
+        hasChanges = true;
+    }
+
+    // If no changes would be made, throw error
+    if (!hasChanges) {
         throw new ApiError(400, 'Please update at least one field');
     }
-    if (email && user.email !== email) {
-        if (!isValidEmail(email)) throw new ApiError(400, 'Invalid email format');
-        user.email = email;
+
+    // Update email if provided and different
+    if (email && user.email !== email.toLowerCase()) {
+        if (!isValidEmail(email)) {
+            throw new ApiError(400, 'Invalid email format');
+        }
+        
+        // Check if email already exists for another user
+        const existingUserWithEmail = await User.findOne({ 
+            email: email.toLowerCase(), 
+            _id: { $ne: targetUserId } 
+        });
+        if (existingUserWithEmail) {
+            throw new ApiError(409, 'Email already in use by another user');
+        }
+        
+        user.email = email.toLowerCase();
     }
+
+    // Update fullName if provided and different
     if (fullName && user.fullName !== fullName) {
         user.fullName = fullName;
     }
-    // Only admin can update role, but admin and moderator can update isDisabled
+
+    // Handle role and isDisabled updates based on user permissions
     if (req.user.role === 'admin') {
+        // Admin can update both role and isDisabled
         if (role && ['user', 'admin', 'moderator'].includes(role)) {
             user.role = role;
         } else if (role) {
@@ -403,15 +441,20 @@ const updateUser = asyncHandler(async (req, res) => {
             user.isDisabled = isDisabled;
         }
     } else if (req.user.role === 'moderator') {
+        // Moderator can only update isDisabled of other users
         if (typeof isDisabled === 'boolean') {
             user.isDisabled = isDisabled;
         }
         if (role) {
             throw new ApiError(403, 'Only admin can update role');
         }
-    } else if (role || typeof isDisabled !== 'undefined') {
-        throw new ApiError(403, 'Only admin or moderator can update isDisabled, and only admin can update role');
+    } else {
+        // Regular users cannot update role or isDisabled
+        if (role || typeof isDisabled !== 'undefined') {
+            throw new ApiError(403, 'Only admin or moderator can update role and isDisabled');
+        }
     }
+
     await user.save({ validateBeforeSave: false });
     return res.status(200).json(
         new ApiResponse(200, { userData: user }, 'User updated successfully')
