@@ -349,7 +349,7 @@ const forgotPassword = asyncHandler( async(req, res) => {
    
 })
 
-//! @desc update user data or admin update any user
+//! @desc Update user data or admin update any user
 //! @route PATCH /api/v1/users/updateUser/:id?
 //! @access Private
 const updateUser = asyncHandler(async (req, res) => {
@@ -357,7 +357,7 @@ const updateUser = asyncHandler(async (req, res) => {
     const { id } = req.params;
     let targetUserId = req.user._id; // Default to current user
 
-    // If ID is provided, only admin can update another user
+    // If ID is provided, only admin or moderator can update another user
     if (id) {
         if (!mongoose.Types.ObjectId.isValid(id)) {
             throw new ApiError(400, 'Invalid user id');
@@ -365,7 +365,16 @@ const updateUser = asyncHandler(async (req, res) => {
         if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
             throw new ApiError(403, 'Only admin or moderator can update other users');
         }
+        // Prevent user from updating their own role or disabling themselves
+        if (id === req.user._id.toString() && (role || typeof isDisabled !== 'undefined')) {
+            throw new ApiError(403, 'You cannot update your own role or disable your own account');
+        }
         targetUserId = id;
+    } else {
+        // When updating self, block changes to role or isDisabled
+        if (role || typeof isDisabled !== 'undefined') {
+            throw new ApiError(403, 'You cannot update your own role or disable your own account');
+        }
     }
 
     const user = await User.findById(targetUserId).select('-password -refreshToken');
@@ -376,43 +385,32 @@ const updateUser = asyncHandler(async (req, res) => {
     // Track if any changes were made
     let hasChanges = false;
 
-    // Check if any field is provided but unchanged
-    if (email && user.email === email.toLowerCase()) {
-        // Email provided but unchanged
-    } else if (email) {
-        hasChanges = true;
-    }
-    
-    if (fullName && user.fullName === fullName) {
-        // FullName provided but unchanged
-    } else if (fullName) {
-        hasChanges = true;
-    }
-    
-    if (role && user.role === role) {
-        // Role provided but unchanged
-    } else if (role) {
-        hasChanges = true;
-    }
-    
-    if (typeof isDisabled === 'boolean' && user.isDisabled === isDisabled) {
-        // isDisabled provided but unchanged
-    } else if (typeof isDisabled === 'boolean') {
+    if (email && user.email !== email.toLowerCase()) {
         hasChanges = true;
     }
 
-    // If no changes would be made, throw error
+    if (fullName && user.fullName !== fullName) {
+        hasChanges = true;
+    }
+
+    if (role && user.role !== role) {
+        hasChanges = true;
+    }
+
+    if (typeof isDisabled === 'boolean' && user.isDisabled !== isDisabled) {
+        hasChanges = true;
+    }
+
     if (!hasChanges) {
         throw new ApiError(400, 'Please update at least one field');
     }
 
-    // Update email if provided and different
+    // Update email
     if (email && user.email !== email.toLowerCase()) {
         if (!isValidEmail(email)) {
             throw new ApiError(400, 'Invalid email format');
         }
-        
-        // Check if email already exists for another user
+
         const existingUserWithEmail = await User.findOne({ 
             email: email.toLowerCase(), 
             _id: { $ne: targetUserId } 
@@ -420,42 +418,39 @@ const updateUser = asyncHandler(async (req, res) => {
         if (existingUserWithEmail) {
             throw new ApiError(409, 'Email already in use by another user');
         }
-        
+
         user.email = email.toLowerCase();
     }
 
-    // Update fullName if provided and different
+    // Update fullName
     if (fullName && user.fullName !== fullName) {
         user.fullName = fullName;
     }
 
-    // Handle role and isDisabled updates based on user permissions
-    if (req.user.role === 'admin') {
-        // Admin can update both role and isDisabled
-        if (role && ['user', 'admin', 'moderator'].includes(role)) {
-            user.role = role;
-        } else if (role) {
-            throw new ApiError(400, 'Invalid role');
-        }
-        if (typeof isDisabled === 'boolean') {
-            user.isDisabled = isDisabled;
-        }
-    } else if (req.user.role === 'moderator') {
-        // Moderator can only update isDisabled of other users
-        if (typeof isDisabled === 'boolean') {
-            user.isDisabled = isDisabled;
-        }
-        if (role) {
-            throw new ApiError(403, 'Only admin can update role');
-        }
-    } else {
-        // Regular users cannot update role or isDisabled
-        if (role || typeof isDisabled !== 'undefined') {
-            throw new ApiError(403, 'Only admin or moderator can update role and isDisabled');
+    // Admin or Moderator updating another user
+    if (req.user._id.toString() !== targetUserId.toString()) {
+        if (req.user.role === 'admin') {
+            if (role) {
+                if (!['user', 'admin', 'moderator'].includes(role)) {
+                    throw new ApiError(400, 'Invalid role');
+                }
+                user.role = role;
+            }
+            if (typeof isDisabled === 'boolean') {
+                user.isDisabled = isDisabled;
+            }
+        } else if (req.user.role === 'moderator') {
+            if (typeof isDisabled === 'boolean') {
+                user.isDisabled = isDisabled;
+            }
+            if (role) {
+                throw new ApiError(403, 'Only admin can update role');
+            }
         }
     }
 
     await user.save({ validateBeforeSave: false });
+
     return res.status(200).json(
         new ApiResponse(200, { userData: user }, 'User updated successfully')
     );
