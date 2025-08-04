@@ -15,6 +15,7 @@ const constant = {
         '/health-check-be', 
         '/register', 
         '/login', 
+        '/refreshToken',
         '/api-docs', 
         '/tweet/getAllTweets', 
         '/tweet/getTweetById/:id',
@@ -80,7 +81,7 @@ export const resourceTypes = [
 export const resourcePermissions = {
   user: {
     // Public actions - anyone can access (no auth required)
-    public: ['login', 'register'],
+      public: ['login', 'register', 'refreshToken'],
     
     // Authenticated actions - all logged-in users (user, moderator, admin)
     authenticated: [
@@ -90,7 +91,6 @@ export const resourcePermissions = {
       'updateCover', 
       'channel', 
       'watchHistory', 
-      'refreshToken', 
       'logout',
       'deleteUser',
       ':id',  // getUserById

@@ -282,6 +282,7 @@ const loginUser = asyncHandler(async (req, res) => {
 //! @access Private
 const logout = asyncHandler(async (req, res) => {
     try {
+        // Clear the refresh token from database
         const user = await User.findByIdAndUpdate(
             req.user._id,
             { $set: { refreshToken: '' } },
@@ -304,10 +305,18 @@ const logout = asyncHandler(async (req, res) => {
             .clearCookie('refreshToken', cookieOptions)
             .json(new ApiResponse(200, {}, 'User logout successfully'));
     } catch (error) {
-        throw new ApiError(
-            401,
-            error?.message || 'Unauthorized request: invalid Token',
-        );
+        // Even if database operation fails, still clear cookies
+        const cookieOptions = {
+            httpOnly: true,
+            secure: true,
+            maxAge: 0,
+        };
+
+        return res
+            .status(200)
+            .clearCookie('accessToken', cookieOptions)
+            .clearCookie('refreshToken', cookieOptions)
+            .json(new ApiResponse(200, {}, 'User logout successfully'));
     }
 });
 
@@ -316,6 +325,7 @@ const logout = asyncHandler(async (req, res) => {
 //! @access Private
 const renewToken = asyncHandler(async (req, res) => {
     const userRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    console.log("🚀 ~ userRefreshToken: ", userRefreshToken);
 
     if (!userRefreshToken) {
         throw new ApiError(401, 'Unauthorized request: No token provided');
@@ -358,9 +368,11 @@ const renewToken = asyncHandler(async (req, res) => {
             maxAge: getMsFromEnv(envVariables.refreshTokenExpiry),
             secure: true,
         });
-        const loggedInUser = await User.findById(user._id).select(
-            '-password -refreshToken',
-        );
+        // Remove sensitive fields from user object instead of making another DB call
+        const loggedInUser = user.toObject();
+        delete loggedInUser.password;
+        delete loggedInUser.refreshToken;
+        
         return res
             .status(200)
             .json(
