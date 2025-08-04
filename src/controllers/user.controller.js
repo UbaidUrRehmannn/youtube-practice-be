@@ -322,7 +322,7 @@ const logout = asyncHandler(async (req, res) => {
 
 //! @desc give user updated access and refresh token
 //! @route POST /api/v1/users/refreshToken
-//! @access Private
+//! @access Public (but with refresh token validation)
 const renewToken = asyncHandler(async (req, res) => {
     const userRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
     console.log("🚀 ~ userRefreshToken: ", userRefreshToken);
@@ -330,16 +330,25 @@ const renewToken = asyncHandler(async (req, res) => {
     if (!userRefreshToken) {
         throw new ApiError(401, 'Unauthorized request: No token provided');
     }
+
     try {
+        // Verify refresh token signature and expiry
         const decodedToken = jwt.verify(
             userRefreshToken,
             envVariables.refreshTokenSecret,
         );
+        
         const user = await User.findById(decodedToken._id);
         if (!user) {
             throw new ApiError(401, 'Unauthorized request: Invalid token');
         }
 
+        // Check if user account is disabled
+        if (user.isDisabled) {
+            throw new ApiError(403, 'User account is disabled');
+        }
+
+        // Validate refresh token against database (prevents token reuse)
         if (userRefreshToken !== user.refreshToken) {
             throw new ApiError(
                 401,
@@ -347,6 +356,7 @@ const renewToken = asyncHandler(async (req, res) => {
             );
         }
 
+        // Generate new tokens (this will update the refresh token in database)
         const { accessToken, refreshToken } =
             await generateAccessAndRefreshToken(user._id);
 
@@ -368,6 +378,7 @@ const renewToken = asyncHandler(async (req, res) => {
             maxAge: getMsFromEnv(envVariables.refreshTokenExpiry),
             secure: true,
         });
+        
         // Remove sensitive fields from user object instead of making another DB call
         const loggedInUser = user.toObject();
         delete loggedInUser.password;

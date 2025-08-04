@@ -4,6 +4,7 @@ import { loginUser, logout, registerUser, renewToken, updatePassword, currentUse
 import paginationMiddleware from '../middleware/pagination.middleware.js';
 import { User } from '../models/user.model.js';
 import { verifyJwt } from '../middleware/auth.middleware.js';
+// import { refreshTokenRateLimit } from '../middleware/rateLimit.middleware.js';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.route('/register').post(
 router.route('/login').post(loginUser);
 router.route('/logout').get(logout);
 router.route('/refreshToken').post(renewToken);
+// router.route('/refreshToken').post(refreshTokenRateLimit, renewToken);
 router.route('/updatePassword').post(updatePassword);
 router.route('/me').get(currentUser);
 router.route('/updateUser/:id?').patch(updateUser);
