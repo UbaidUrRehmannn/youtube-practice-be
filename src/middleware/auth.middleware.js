@@ -6,7 +6,6 @@ import asyncHandler from '../utils/asynchandler.js';
 
 export const verifyJwt = asyncHandler(async (req, res, next) => {
     const token = req.cookies?.accessToken || req.header('Authorization')?.replace('Bearer ', '');
-    console.log("🚀 ~ token: ", token);
     
     // Check if this is a public route (no auth required)
     if (constant.publicRouts.some(route => req.path.includes(route))) {
@@ -35,7 +34,6 @@ export const verifyJwt = asyncHandler(async (req, res, next) => {
     
     try {
         const decodedToken = jwt.verify(token, envVariables.accessTokenSecret);
-        console.log("🚀 ~ decodedToken: ", decodedToken);
         const user = await User.findById(decodedToken._id).select('-password -refreshToken');
         if (!user) {
             throw new ApiError(401, 'Unauthorized request: Invalid token');

@@ -83,9 +83,6 @@ const registerUser = asyncHandler(async (req, res, next) => {
     });
 
     if (existingUser) {
-        console.log(userName);
-        console.log(email);
-        console.log(existingUser);
         let errorMessage = '';
         // Check for which field already exists
         if (
@@ -100,7 +97,6 @@ const registerUser = asyncHandler(async (req, res, next) => {
         }
 
         // Log the error message and throw an ApiError
-        console.log('🚀 ~ registerUser ~ errorMessage:', errorMessage);
         throw new ApiError(409, errorMessage);
         // const errorMessage = existingUser.userName === userName ? `User with username userName}" already exists` : `User with email "${email}" already exists`;
         // return res.status(409).json(new ApiError(409, errorMessage));
@@ -325,7 +321,6 @@ const logout = asyncHandler(async (req, res) => {
 //! @access Public (but with refresh token validation)
 const renewToken = asyncHandler(async (req, res) => {
     const userRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
-    console.log("🚀 ~ userRefreshToken: ", userRefreshToken);
 
     if (!userRefreshToken) {
         throw new ApiError(401, 'Unauthorized request: No token provided');
@@ -701,7 +696,6 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
                 ),
             );
     } catch (error) {
-        console.log('🚀 ~ updateUserCoverImage ~ error:', error);
         throw new ApiError(
             500,
             error?.message || 'error while uploading cover image',
@@ -832,7 +826,6 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
             },
         },
     ]);
-    console.log('🚀 ~ getUserChannelProfile ~ channel:', channel);
 
     if (!channel?.length) {
         throw new ApiError(404, 'Channel does not exists');
@@ -930,24 +923,27 @@ const getAllUsers = asyncHandler(async (req, res) => {
     // Always exclude the current logged-in user
     filter._id = { $ne: req.user._id };
 
-    // Apply search filters if provided
-    if (role) filter.role = role;
-    if (typeof isDisabled !== 'undefined')
-        filter.isDisabled = isDisabled === 'true' || isDisabled === true;
-    if (email) filter.email = { $regex: email, $options: 'i' };
-    if (userName) filter.userName = { $regex: userName, $options: 'i' };
-    if (fullName) filter.fullName = { $regex: fullName, $options: 'i' };
+    // Apply search filters if provided (only if value is not empty)
+    if (isProvided(role)) filter.role = role;
+    if (isProvided(isDisabled)) filter.isDisabled = isDisabled === 'true' || isDisabled === true;
+    if (isProvided(email)) filter.email = { $regex: email, $options: 'i' };
+    if (isProvided(userName)) filter.userName = { $regex: userName, $options: 'i' };
+    if (isProvided(fullName)) filter.fullName = { $regex: fullName, $options: 'i' };
 
+    // Validate pagination parameters
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10)); // Max 100, min 1
+    
     // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
     const totalResults = await User.countDocuments(filter);
-    const totalPages = Math.ceil(totalResults / parseInt(limit));
+    const totalPages = Math.ceil(totalResults / limitNum);
 
     const users = await User.find(filter)
         .select('-password -refreshToken')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit));
+        .limit(limitNum);
 
     // Sanitize users (double-check sensitive fields are removed)
     const sanitizedUsers = users.map((user) => {
@@ -963,12 +959,12 @@ const getAllUsers = asyncHandler(async (req, res) => {
             {
                 users: sanitizedUsers,
                 pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
+                    page: pageNum,
+                    limit: limitNum,
                     totalPages,
                     totalResults,
-                    hasNextPage: parseInt(page) < totalPages,
-                    hasPrevPage: parseInt(page) > 1,
+                    hasNextPage: pageNum < totalPages,
+                    hasPrevPage: pageNum > 1,
                 },
             },
             'Users fetched successfully',
@@ -1002,45 +998,28 @@ const getUserModeration = asyncHandler(async (req, res) => {
         );
     }
 
-    // Build filter object
     const filter = {};
+    if (isProvided(username)) filter.userName = { $regex: username, $options: 'i' };
+    if (isProvided(email)) filter.email = { $regex: email, $options: 'i' };
+    if (isProvided(fullName)) filter.fullName = { $regex: fullName, $options: 'i' };
+    if (isProvided(role)) filter.role = role;
+    if (isProvided(isDisabled)) filter.isDisabled = isDisabled === 'true' || isDisabled === true;
 
-    // Exclude self from results
-    filter._id = { $ne: currentUserId };
-
-    // Exclude admin users if current user is moderator
-    if (userRole === 'moderator') {
-        filter.role = { $ne: 'admin' };
-    }
-
-    // Apply search filters
-    if (username) {
-        filter.userName = { $regex: username, $options: 'i' };
-    }
-    if (email) {
-        filter.email = { $regex: email, $options: 'i' };
-    }
-    if (fullName) {
-        filter.fullName = { $regex: fullName, $options: 'i' };
-    }
-    if (role && Object.values(userRoles).includes(role)) {
-        filter.role = role;
-    }
-    if (typeof isDisabled === 'boolean') {
-        filter.isDisabled = isDisabled;
-    }
-
+    // Validate pagination parameters
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10)); // Max 100, min 1
+    
     // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
     const totalUsers = await User.countDocuments(filter);
-    const totalPages = Math.ceil(totalUsers / parseInt(limit));
+    const totalPages = Math.ceil(totalUsers / limitNum);
 
     // Get users with pagination
     const users = await User.find(filter)
         .select('-password -refreshToken')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit));
+        .limit(limitNum);
 
     return res.status(200).json(
         new ApiResponse(
@@ -1048,12 +1027,12 @@ const getUserModeration = asyncHandler(async (req, res) => {
             {
                 users,
                 pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
+                    page: pageNum,
+                    limit: limitNum,
                     totalPages,
                     totalUsers,
-                    hasNextPage: parseInt(page) < totalPages,
-                    hasPrevPage: parseInt(page) > 1,
+                    hasNextPage: pageNum < totalPages,
+                    hasPrevPage: pageNum > 1,
                 },
             },
             'Users fetched for moderation successfully',
@@ -1078,6 +1057,9 @@ const getUserById = asyncHandler(async (req, res, next) => {
         .status(200)
         .json(new ApiResponse(200, user, 'User fetched successfully'));
 });
+
+// Helper to check if a filter value is provided (not undefined, null, or empty string)
+const isProvided = (val) => val !== undefined && val !== null && String(val).trim() !== '';
 
 export {
     registerUser,
