@@ -9,7 +9,6 @@ import asyncHandler from '../utils/asynchandler.js';
  * Usage: router.use(requireRoutePermission)
  */
 const requireRoutePermission = asyncHandler(async (req, res, next) => {
-    console.log("req: ", req);
     // 1. Bypass for public routes
     if (constant.publicRouts.some(route => req.path.includes(route))) {
         return next();

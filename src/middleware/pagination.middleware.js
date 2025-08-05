@@ -11,6 +11,13 @@ const paginationMiddleware = (model, options = {}) => async (req, res, next) => 
     try {
         let { page = 1, limit = 10, sort, ...filters } = req.query;
         
+        // Remove empty, undefined, or null filters
+        Object.keys(filters).forEach(key => {
+            if (filters[key] === '' || filters[key] === undefined || filters[key] === null) {
+                delete filters[key];
+            }
+        });
+        
         // Validate and sanitize pagination parameters
         page = Math.max(1, parseInt(page, 10) || 1);
         const defaultLimit = options.defaultLimit || 10;
