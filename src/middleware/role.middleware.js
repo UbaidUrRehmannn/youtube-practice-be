@@ -9,47 +9,53 @@ import asyncHandler from '../utils/asynchandler.js';
  * Usage: router.use(requireRoutePermission)
  */
 const requireRoutePermission = asyncHandler(async (req, res, next) => {
+    console.log("req: ", req);
     // 1. Bypass for public routes
     if (constant.publicRouts.some(route => req.path.includes(route))) {
         return next();
     }
 
-    // 2. Ensure user and role are present
+    // 2. Special handling for logout endpoint - allow minimal user object
+    if (req.path.includes('/logout') && req.user && req.user._id) {
+        return next(); // Allow logout with minimal user object
+    }
+
+    // 3. Ensure user and role are present
     if (!req.user || !req.user.role) {
         throw new ApiError(401, 'Unauthorized: No user or role found');
     }
 
-    // 3. Admins can access everything
+    // 4. Admins can access everything
     if (req.user.role === 'admin') return next();
 
-    // 4. Remove any /api/v{number}/ prefix for version-agnostic matching
+    // 5. Remove any /api/v{number}/ prefix for version-agnostic matching
     let currentPath = req.path.replace(/^\/api\/v[0-9]+\//, '/');
     // Remove leading slash for consistency
     currentPath = currentPath.replace(/^\/+/, '');
 
-    // 5. Split path into segments (e.g., "user/refreshToken" -> ["user", "refreshToken"])
+    // 6. Split path into segments (e.g., "user/refreshToken" -> ["user", "refreshToken"])
     const pathSegments = currentPath.split('/').filter(Boolean);
     if (pathSegments.length === 0) {
         throw new ApiError(403, 'Forbidden: Invalid route');
     }
 
-    // 6. Extract resource type and action
+    // 7. Extract resource type and action
     const resourceType = pathSegments[0]; // e.g., "user", "video", "tweet"
     const action = pathSegments[1] || ''; // e.g., "refreshToken", "allUsers", or empty for /user
     const hasId = pathSegments.length > 2; // e.g., /user/123/update
 
-    // 7. Check if resource type is supported
+    // 8. Check if resource type is supported
     if (!resourceTypes.includes(resourceType)) {
         throw new ApiError(403, `Forbidden: Resource type '${resourceType}' not supported`);
     }
 
-    // 8. Get permissions for this resource type
+    // 9. Get permissions for this resource type
     const perms = resourcePermissions[resourceType];
     if (!perms) {
         throw new ApiError(403, `Forbidden: No permissions defined for resource '${resourceType}'`);
     }
 
-    // 9. Determine user role and allowed actions
+    // 10. Determine user role and allowed actions
     // Public actions (no auth required, but you may want to check for req.user)
     if (perms.public && perms.public.includes(action)) {
         return next();
@@ -88,7 +94,7 @@ const requireRoutePermission = asyncHandler(async (req, res, next) => {
         }
     }
 
-    // 10. If no permission matched, deny access
+    // 11. If no permission matched, deny access
     throw new ApiError(403, 'Forbidden: You do not have permission to access this resource');
 });
 
