@@ -917,6 +917,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
         fullName,
         page = 1,
         limit = 10,
+        sort,
     } = req.query;
     const filter = {};
 
@@ -939,11 +940,28 @@ const getAllUsers = asyncHandler(async (req, res) => {
     const totalResults = await User.countDocuments(filter);
     const totalPages = Math.ceil(totalResults / limitNum);
 
-    const users = await User.find(filter)
-        .select('-password -refreshToken')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum);
+    // Build query
+    let query = User.find(filter).select('-password -refreshToken');
+    
+    // Apply sorting
+    if (sort) {
+        // Validate sort parameter to prevent injection attacks
+        const allowedSortFields = ['createdAt', 'updatedAt', 'userName', 'fullName', 'email', 'role'];
+        const sortField = sort.startsWith('-') ? sort.slice(1) : sort;
+        const sortOrder = sort.startsWith('-') ? -1 : 1;
+        
+        if (allowedSortFields.includes(sortField)) {
+            query = query.sort({ [sortField]: sortOrder });
+        } else {
+            // Default sorting if invalid field
+            query = query.sort({ createdAt: -1 });
+        }
+    } else {
+        // Default sorting
+        query = query.sort({ createdAt: -1 });
+    }
+    
+    const users = await query.skip(skip).limit(limitNum);
 
     // Sanitize users (double-check sensitive fields are removed)
     const sanitizedUsers = users.map((user) => {
