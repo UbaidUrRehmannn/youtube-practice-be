@@ -8,8 +8,24 @@ export const verifyJwt = asyncHandler(async (req, res, next) => {
     const token = req.cookies?.accessToken || req.header('Authorization')?.replace('Bearer ', '');
     
     // Check if this is a public route (no auth required)
+    // For public routes, we allow requests without a token, but if a token is present,
+    // we will try to verify it and attach req.user so that public endpoints can
+    // optionally leverage the authenticated context (e.g., admin creating another admin).
     if (constant.publicRouts.some(route => req.path.includes(route))) {
-        return next(); // Public route, no token required
+        if (!token) {
+            return next(); // Public route, no token provided
+        }
+        try {
+            const decodedToken = jwt.verify(token, envVariables.accessTokenSecret);
+            const user = await User.findById(decodedToken._id).select('-password -refreshToken');
+            if (user && !user.isDisabled) {
+                req.user = user; // Attach user context but do not enforce auth for public routes
+            }
+            return next();
+        } catch (err) {
+            // Invalid token should not block access to public routes
+            return next();
+        }
     }
     
     // Special handling for logout endpoint - allow expired tokens

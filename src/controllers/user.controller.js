@@ -45,13 +45,10 @@ const getMsFromEnv = (timeStr) => {
 const isProduction = envVariables.environment === 'PROD';
 
 //! @desc Register a new user
-//! @route POST /api/v1/users/register
+//! @route POST /api/v1/user/register
 //! @access Public
 const registerUser = asyncHandler(async (req, res, next) => {
-    // console.log("req.body: ", req.body);
-    // console.log("req.files: ", req.files);
     const { userName, email, fullName, password, role } = req.body;
-
     // Check for individual fields and throw specific error messages
     if (isEmpty(userName)) {
         throw new ApiError(400, 'Username is required');
@@ -191,7 +188,6 @@ const registerUser = asyncHandler(async (req, res, next) => {
         userName: userName.toLowerCase(),
         role: userRole,
     });
-
     const newUser = await User.findById(user._id).select(
         '-password -refreshToken',
     );
