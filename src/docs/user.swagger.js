@@ -127,15 +127,15 @@
  *               email:
  *                 type: string
  *                 description: User's email address (optional if username provided)
- *                 example: "john@example.com"
+ *                 example: "ubaidurrehman127@gmail.com"
  *               userName:
  *                 type: string
  *                 description: User's username (optional if email provided)
- *                 example: "john_doe"
+ *                 example: "admin"
  *               password:
  *                 type: string
  *                 description: User's password
- *                 example: "password123"
+ *                 example: "12345678"
  *     responses:
  *       200:
  *         description: User login successfully
