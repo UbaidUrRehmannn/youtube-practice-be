@@ -225,6 +225,15 @@ const AGGREGATION_STAGES = {
         },
     },
 
+    // Add user interaction data
+    addUserInteractionData: (userId) => ({
+        $addFields: {
+            isLiked: { $in: [userId, { $ifNull: ['$likes', []] }] },
+            isDisliked: { $in: [userId, { $ifNull: ['$dislikes', []] }] },
+            isRetweeted: { $in: [userId, { $ifNull: ['$reposts', []] }] },
+        },
+    }),
+
     // Project tweet fields (without arrays)
     projectTweetFields: {
         $project: {
@@ -238,6 +247,9 @@ const AGGREGATION_STAGES = {
             likesCount: 1,
             dislikesCount: 1,
             repostsCount: 1,
+            isLiked: 1,
+            isDisliked: 1,
+            isRetweeted: 1,
             createdAt: 1,
             updatedAt: 1,
             author: {
@@ -262,6 +274,9 @@ const AGGREGATION_STAGES = {
             likesCount: 1,
             dislikesCount: 1,
             repostsCount: 1,
+            isLiked: 1,
+            isDisliked: 1,
+            isRetweeted: 1,
             createdAt: 1,
             updatedAt: 1,
             author: {
@@ -375,7 +390,7 @@ const AGGREGATION_STAGES = {
 };
 
 // Helper function to create common aggregation pipeline for tweet population
-const createTweetAggregationPipeline = (tweetId, includeComments = false) => {
+const createTweetAggregationPipeline = (tweetId, includeComments = false, userId = null) => {
     if (!tweetId) {
         throw new ApiError(
             400,
@@ -388,19 +403,34 @@ const createTweetAggregationPipeline = (tweetId, includeComments = false) => {
         AGGREGATION_STAGES.authorLookup,
         AGGREGATION_STAGES.unwindAuthor,
         AGGREGATION_STAGES.addEngagementCounts,
-        AGGREGATION_STAGES.projectTweetFields,
     ];
+
+    // Add user interaction data if userId is provided
+    if (userId) {
+        pipeline.push(AGGREGATION_STAGES.addUserInteractionData(userId));
+    } else {
+        // If no userId, set default values for user interaction fields
+        pipeline.push({
+            $addFields: {
+                isLiked: false,
+                isDisliked: false,
+                isRetweeted: false,
+            },
+        });
+    }
+
+    pipeline.push(AGGREGATION_STAGES.projectTweetFields);
 
     if (includeComments) {
         pipeline.splice(
-            3,
+            4,
             0,
             AGGREGATION_STAGES.commentsLookup,
             AGGREGATION_STAGES.commentAuthorsLookup,
         );
 
-        pipeline.splice(6, 0, AGGREGATION_STAGES.addCommentAuthors);
-        pipeline.splice(7, 0, AGGREGATION_STAGES.projectCommentFields);
+        pipeline.splice(7, 0, AGGREGATION_STAGES.addCommentAuthors);
+        pipeline.splice(8, 0, AGGREGATION_STAGES.projectCommentFields);
     }
 
     return pipeline;
@@ -413,17 +443,35 @@ const createTweetListPipeline = (
     skip,
     limit,
     includeRole = false,
+    userId = null,
 ) => {
     const pipeline = [
         { $match: filter },
         AGGREGATION_STAGES.authorLookup,
         AGGREGATION_STAGES.unwindAuthor,
         AGGREGATION_STAGES.addEngagementCounts,
+    ];
+
+    // Add user interaction data if userId is provided
+    if (userId) {
+        pipeline.push(AGGREGATION_STAGES.addUserInteractionData(userId));
+    } else {
+        // If no userId, set default values for user interaction fields
+        pipeline.push({
+            $addFields: {
+                isLiked: false,
+                isDisliked: false,
+                isRetweeted: false,
+            },
+        });
+    }
+
+    pipeline.push(
         includeRole
             ? AGGREGATION_STAGES.projectTweetFieldsWithRole
             : AGGREGATION_STAGES.projectTweetFields,
         AGGREGATION_STAGES.createPaginationFacet(sortOptions, skip, limit),
-    ];
+    );
 
     return pipeline;
 };
@@ -514,8 +562,8 @@ const updateTweetFields = (tweet, updates) => {
 };
 
 // Helper function to get populated tweet
-const getPopulatedTweet = async (tweetId, includeComments = false) => {
-    const pipeline = createTweetAggregationPipeline(tweetId, includeComments);
+const getPopulatedTweet = async (tweetId, includeComments = false, userId = null) => {
+    const pipeline = createTweetAggregationPipeline(tweetId, includeComments, userId);
     const result = await Tweet.aggregate(pipeline);
     return handleAggregationResult(result, 'Tweet not found');
 };
@@ -587,7 +635,7 @@ const createTweet = asyncHandler(async (req, res) => {
     });
 
     // Get populated tweet
-    const populatedTweet = await getPopulatedTweet(tweet._id);
+    const populatedTweet = await getPopulatedTweet(tweet._id, false, authorId);
 
     return res
         .status(201)
@@ -652,11 +700,15 @@ const getAllTweets = asyncHandler(async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Execute query with pagination using aggregation
+    // Pass userId if user is authenticated (req.user might be available from auth middleware)
+    const userId = req.user?._id || null;
     const pipeline = createTweetListPipeline(
         filter,
         sortOptions,
         skip,
         limitNum,
+        false, // includeRole
+        userId,
     );
     const result = await Tweet.aggregate(pipeline);
 
@@ -685,7 +737,9 @@ const getTweetById = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const tweetId = validateTweetId(id);
 
-    const tweetData = await getPopulatedTweet(tweetId, true);
+    // Pass userId if user is authenticated
+    const userId = req.user?._id || null;
+    const tweetData = await getPopulatedTweet(tweetId, true, userId);
 
     // Check if user can view this tweet (public can only see published tweets)
     if (!canViewTweet(tweetData, req.user)) {
@@ -742,6 +796,8 @@ const getMyTweets = asyncHandler(async (req, res) => {
         sortOptions,
         skip,
         limitNum,
+        false, // includeRole
+        authorId, // Pass the authorId as userId for user interaction data
     );
     const result = await Tweet.aggregate(pipeline);
 
@@ -809,7 +865,7 @@ const updateTweet = asyncHandler(async (req, res) => {
         await targetTweet.save();
 
         // Get populated tweet
-        const updatedTweet = await getPopulatedTweet(targetTweet._id);
+        const updatedTweet = await getPopulatedTweet(targetTweet._id, false, req.user._id);
 
         return res
             .status(200)
@@ -855,7 +911,7 @@ const updateTweet = asyncHandler(async (req, res) => {
         await targetTweet.save();
 
         // Get populated tweet
-        const updatedTweet = await getPopulatedTweet(targetTweet._id);
+        const updatedTweet = await getPopulatedTweet(targetTweet._id, false, req.user._id);
 
         return res
             .status(200)
@@ -888,7 +944,7 @@ const updateTweet = asyncHandler(async (req, res) => {
         await targetTweet.save();
 
         // Get populated tweet
-        const updatedTweet = await getPopulatedTweet(targetTweet._id);
+        const updatedTweet = await getPopulatedTweet(targetTweet._id, false, req.user._id);
 
         return res
             .status(200)
@@ -934,7 +990,7 @@ const updateTweetStatus = asyncHandler(async (req, res) => {
     await tweet.save();
 
     // Get populated tweet
-    const updatedTweet = await getPopulatedTweet(tweet._id);
+    const updatedTweet = await getPopulatedTweet(tweet._id, false, req.user._id);
 
     return res
         .status(200)
@@ -1256,7 +1312,8 @@ const getTweetModeration = asyncHandler(async (req, res) => {
         { createdAt: -1 },
         skip,
         limitNum,
-        true,
+        true, // includeRole
+        currentUserId, // Pass currentUserId for user interaction data
     );
     const result = await Tweet.aggregate(pipeline);
 

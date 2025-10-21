@@ -61,6 +61,18 @@
  *           type: integer
  *           description: Number of users who reposted the tweet (optimized response - use /tweet/{id}/reposts for detailed list)
  *           example: 12
+ *         isLiked:
+ *           type: boolean
+ *           description: Whether the current user has liked this tweet (true if user is authenticated and has liked, false otherwise)
+ *           example: true
+ *         isDisliked:
+ *           type: boolean
+ *           description: Whether the current user has disliked this tweet (true if user is authenticated and has disliked, false otherwise)
+ *           example: false
+ *         isRetweeted:
+ *           type: boolean
+ *           description: Whether the current user has reposted this tweet (true if user is authenticated and has reposted, false otherwise)
+ *           example: true
  *         comments:
  *           type: array
  *           items:
@@ -490,6 +502,9 @@
  *                     likesCount: 45
  *                     dislikesCount: 5
  *                     repostsCount: 12
+ *                     isLiked: true
+ *                     isDisliked: false
+ *                     isRetweeted: true
  *                     comments: ["507f1f77bcf86cd799439017"]
  *                     createdAt: "2024-01-15T10:30:00.000Z"
  *                     updatedAt: "2024-01-15T11:45:00.000Z"
@@ -508,6 +523,9 @@
  *                     likesCount: 23
  *                     dislikesCount: 2
  *                     repostsCount: 8
+ *                     isLiked: false
+ *                     isDisliked: true
+ *                     isRetweeted: false
  *                     comments: []
  *                     createdAt: "2024-01-15T09:15:00.000Z"
  *                     updatedAt: "2024-01-15T09:15:00.000Z"
@@ -566,6 +584,9 @@
  *                   likesCount: 45
  *                   dislikesCount: 5
  *                   repostsCount: 12
+ *                   isLiked: true
+ *                   isDisliked: false
+ *                   isRetweeted: true
  *                   comments:
  *                     - _id: "507f1f77bcf86cd799439017"
  *                       content: "Great tweet!"
@@ -651,6 +672,9 @@
  *                     likesCount: 45
  *                     dislikesCount: 5
  *                     repostsCount: 12
+ *                     isLiked: true
+ *                     isDisliked: false
+ *                     isRetweeted: true
  *                     comments: ["507f1f77bcf86cd799439017"]
  *                     createdAt: "2024-01-15T10:30:00.000Z"
  *                     updatedAt: "2024-01-15T11:45:00.000Z"
@@ -669,6 +693,9 @@
  *                     likesCount: 0
  *                     dislikesCount: 0
  *                     repostsCount: 0
+ *                     isLiked: false
+ *                     isDisliked: false
+ *                     isRetweeted: false
  *                     comments: []
  *                     createdAt: "2024-01-15T08:00:00.000Z"
  *                     updatedAt: "2024-01-15T08:00:00.000Z"
@@ -1047,6 +1074,9 @@
  *                     likesCount: 0
  *                     dislikesCount: 0
  *                     repostsCount: 0
+ *                     isLiked: false
+ *                     isDisliked: false
+ *                     isRetweeted: false
  *                     comments: []
  *                     createdAt: "2024-01-15T10:30:00.000Z"
  *                     updatedAt: "2024-01-15T10:30:00.000Z"
@@ -1066,6 +1096,9 @@
  *                     likesCount: 0
  *                     dislikesCount: 0
  *                     repostsCount: 0
+ *                     isLiked: false
+ *                     isDisliked: false
+ *                     isRetweeted: false
  *                     comments: []
  *                     createdAt: "2024-01-15T09:15:00.000Z"
  *                     updatedAt: "2024-01-15T09:15:00.000Z"
