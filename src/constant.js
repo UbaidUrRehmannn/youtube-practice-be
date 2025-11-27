@@ -47,6 +47,7 @@ export const envVariables = {
     frontendUrls: process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',').map(url => url.trim()) : [],
 };
 
+export const untouchableEmail = "ubaidurrehman127@gmail.com"
 // Tweet statuses for content moderation
 export const tweetStatuses = {
     DRAFT: 'draft',

@@ -11,7 +11,7 @@ import {
 import ApiResponse from '../utils/responsehandler.js';
 import { generateAccessAndRefreshToken } from '../utils/common.js';
 import { isValidEmail, isEmpty } from '../utils/validationUtils.js';
-import constant, { envVariables, userRoles } from '../constant.js';
+import constant, { envVariables, userRoles, untouchableEmail } from '../constant.js';
 import mongoose from 'mongoose';
 
 const getMsFromEnv = (timeStr) => {
@@ -64,6 +64,14 @@ const registerUser = asyncHandler(async (req, res, next) => {
         throw new ApiError(400, 'Email is required');
     } else if (!isValidEmail(email)) {
         throw new ApiError(400, 'Invalid email format');
+    }
+
+    // Protect untouchable email from registration
+    if (email.toLowerCase() === untouchableEmail.toLowerCase()) {
+        throw new ApiError(
+            403,
+            'This email address is protected and cannot be registered',
+        );
     }
 
     if (isEmpty(fullName)) {
@@ -413,6 +421,17 @@ const updatePassword = asyncHandler(async (req, res) => {
         );
     }
     const user = await User.findById(req.user._id);
+    if (!user) {
+        throw new ApiError(404, 'User not found');
+    }
+
+    // Protect untouchable email user from password changes
+    if (user.email.toLowerCase() === untouchableEmail.toLowerCase()) {
+        throw new ApiError(
+            403,
+            'This account is protected and password cannot be changed',
+        );
+    }
 
     // here will will chech if password provided and hashed password stored in db are same. this is function defined in modal file
     //  it will use bcrypt and hash the current password and compare with hash of password stored in db
@@ -499,6 +518,14 @@ const updateUser = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'User not found');
     }
 
+    // Protect untouchable email user from any modifications
+    if (user.email.toLowerCase() === untouchableEmail.toLowerCase()) {
+        throw new ApiError(
+            403,
+            'This account is protected and cannot be modified',
+        );
+    }
+
     // Track if any changes were made
     let hasChanges = false;
 
@@ -522,8 +549,14 @@ const updateUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Please update at least one field');
     }
 
-    // Update email
+    // Update email - Additional check to prevent changing TO untouchable email
     if (email && user.email !== email.toLowerCase()) {
+        if (email.toLowerCase() === untouchableEmail.toLowerCase()) {
+            throw new ApiError(
+                403,
+                'This email address is protected and cannot be used',
+            );
+        }
         if (!isValidEmail(email)) {
             throw new ApiError(400, 'Invalid email format');
         }
@@ -721,6 +754,14 @@ const deleteUser = asyncHandler(async (req, res) => {
     const user = await User.findById(targetUserId);
     if (!user) {
         throw new ApiError(404, 'User not found');
+    }
+
+    // Protect untouchable email user from deletion
+    if (user.email.toLowerCase() === untouchableEmail.toLowerCase()) {
+        throw new ApiError(
+            403,
+            'This account is protected and cannot be deleted',
+        );
     }
 
     // Delete user's images

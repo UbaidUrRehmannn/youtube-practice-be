@@ -6,7 +6,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon -r dotenv/config --experimental-json-modules src/index.js"
+    "start": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
+    "seed:admin": "node -r dotenv/config scripts/seedAdminUser.js",
+    "seed:admin-only": "node -r dotenv/config scripts/seedAdminUserOnly.js"
   },
   "keywords": [
     "backend",
